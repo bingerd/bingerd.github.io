@@ -2,83 +2,365 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Three.js – Visual Art Test</title>
+  <title>Bing Tan — Machine Learning Engineer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Bing Tan — Machine Learning Engineer. End-to-end ML systems, MLOps, and applied research." />
+
+  <!-- OpenGraph -->
+  <meta property="og:title" content="Bing Tan — Machine Learning Engineer" />
+  <meta property="og:description" content="Production ML systems, MLOps, and applied research." />
+  <meta property="og:type" content="website" />
+
+  <!--
+  =====================================================
+  TODO (YOU WILL EDIT THESE LATER)
+  -----------------------------------------------------
+  - Replace dummy project descriptions
+  - Add real blog posts / links
+  - Add resume PDF link
+  - Replace contact placeholders
+  =====================================================
+  -->
+
   <style>
+    :root {
+      --bg: #000;
+      --fg: #fff;
+      --glass: rgba(0,0,0,0.45);
+      --accent: #d9a4ff;
+    }
+
+    [data-theme="light"] {
+      --bg: #f6f6f6;
+      --fg: #0b0b0b;
+      --glass: rgba(255,255,255,0.7);
+      --accent: #7a3cff;
+    }
+
     html, body {
       margin: 0;
       padding: 0;
-      overflow: hidden;
-      background: #000;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      overflow-x: hidden;
     }
-    canvas {
-      display: block;
+
+    canvas { position: fixed; inset: 0; z-index: 0; }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(12px);
+      background: var(--glass);
+      z-index: 10;
+      box-sizing: border-box;
+    }
+
+    nav .logo { font-weight: 700; letter-spacing: 0.12em; white-space: nowrap; }
+
+    nav ul {
+      display: flex;
+      gap: 12px;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    nav li { cursor: pointer; opacity: 0.75; white-space: nowrap; }
+    nav li:hover { opacity: 1; }
+
+    button.toggle {
+      background: none;
+      border: 1px solid currentColor;
+      color: inherit;
+      padding: 6px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+
+    section {
+      min-height: 100vh;
+      padding: 140px 24px 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .container { max-width: 960px; }
+
+    h1 { font-size: clamp(2.6rem, 5vw, 4.4rem); margin-bottom: 0.6rem; }
+    h2 { font-weight: 400; opacity: 0.75; margin-bottom: 2.2rem; }
+    p { line-height: 1.7; opacity: 0.85; }
+
+    .cta {
+      display: inline-block;
+      margin-top: 3rem;
+      padding: 14px 36px;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+      text-decoration: none;
+      color: inherit;
+      transition: background 0.2s, transform 0.2s;
+    }
+
+    .cta:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); }
+
+    /* PROJECTS */
+    .projects {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 28px;
+      margin-top: 56px;
+    }
+
+    .card {
+      padding: 28px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.15);
+      text-align: left;
+      backdrop-filter: blur(8px);
+      transition: transform 0.25s, opacity 0.4s;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+
+    .card.visible { opacity: 1; transform: translateY(0); }
+    .card:hover { transform: translateY(-6px); }
+
+    /* CASE STUDIES (DUMMY) */
+    .case-study {
+      margin-top: 48px;
+      padding: 32px;
+      border: 1px dashed var(--accent);
+      border-radius: 16px;
+      text-align: left;
+      opacity: 0.8;
+    }
+
+    footer {
+      text-align: center;
+      padding: 48px 20px;
+      opacity: 0.6;
+      position: relative;
+      z-index: 1;
+    }
+
+    @media (max-width: 640px) {
+      nav { padding: 10px 14px; }
+      section { padding-top: 120px; }
     }
   </style>
 </head>
-<body>
+<body data-theme="dark">
+
+<canvas id="bg"></canvas>
+
+<nav>
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li onclick="go('home')">Home</li>
+    <li onclick="go('about')">About</li>
+    <li onclick="go('projects')">Projects</li>
+    <li onclick="go('blog')">Writing</li>
+    <li onclick="go('contact')">Contact</li>
+    <li><button class="toggle" onclick="toggleTheme()">Theme</button></li>
+    <li><button class="toggle" onclick="togglePerf()">Perf</button></li>
+  </ul>
+</nav>
+
+<section id="home">
+  <div class="container">
+    <h1>Machine Learning Engineer</h1>
+    <h2>End-to-end ML systems · MLOps · Applied Research</h2>
+    <a class="cta" onclick="go('projects')">Explore My Work</a>
+  </div>
+</section>
+
+<section id="about">
+  <div class="container">
+    <h1>About</h1>
+    <p>
+      <!-- TODO: Replace with your final bio -->
+      I design, build, and operate production machine learning systems.
+      My background spans data engineering, model training, inference platforms,
+      and reliability at scale.
+    </p>
+  </div>
+</section>
+
+<section id="projects">
+  <div class="container">
+    <h1>Selected Projects</h1>
+    <div class="projects" id="projectGrid"></div>
+
+    <!--
+    =====================================================
+    DUMMY CASE STUDY BLOCK (REPLACE LATER)
+    -----------------------------------------------------
+    Use this for deep dives with diagrams & metrics
+    =====================================================
+    -->
+    <div class="case-study">
+      <h3>Case Study: Large-Scale Inference Platform</h3>
+      <p><strong>Problem:</strong> High-latency GPU inference under bursty load.</p>
+      <p><strong>Solution:</strong> Dynamic batching, KV caching, autoscaling.</p>
+      <p><strong>Impact:</strong> ↓ 42% p99 latency, ↑ 3.1× throughput.</p>
+    </div>
+  </div>
+</section>
+
+<section id="blog">
+  <div class="container">
+    <h1>Writing</h1>
+    <!-- TODO: Replace with real blog posts or MDX links -->
+    <p>Designing ML systems that don’t fail in production.</p>
+    <p>MLOps lessons learned shipping real models.</p>
+  </div>
+</section>
+
+<section id="contact">
+  <div class="container">
+    <h1>Contact</h1>
+    <!-- TODO: Replace with final links -->
+    <p>
+      bxntan@gmail.com<br />
+      github.com/bingerd<br />
+      linkedin.com/in/bingerd
+    </p>
+  </div>
+</section>
+
+<footer>
+  © <span id="year"></span> Bing Tan
+</footer>
+
+<script>
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
 
 <script type="module">
   import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
-  // Scene
+  const canvas = document.getElementById('bg');
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x050505);
 
-  // Camera
-  const camera = new THREE.PerspectiveCamera(
-    45,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    100
-  );
+  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
   camera.position.z = 6;
 
-  // Renderer
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(window.devicePixelRatio);
-  document.body.appendChild(renderer.domElement);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-  // Geometry
-  const geometry = new THREE.TorusKnotGeometry(1, 0.3, 200, 32);
+  const geometry = new THREE.IcosahedronGeometry(1.6, 64);
 
-  // Material (visual-art friendly)
-  const material = new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    roughness: 0.35,
-    metalness: 0.65,
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      time: { value: 0 },
+      colorA: { value: new THREE.Color(0.9, 0.6, 1.0) },
+      colorB: { value: new THREE.Color(0.15, 0.15, 0.15) }
+    },
+    vertexShader: `
+      uniform float time;
+      varying vec3 vNormal;
+      void main() {
+        vNormal = normal;
+        vec3 pos = position + normal * sin(time + position.y * 6.0) * 0.12;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 colorA;
+      uniform vec3 colorB;
+      varying vec3 vNormal;
+      void main() {
+        float i = pow(0.55 - dot(vNormal, vec3(0.0,0.0,1.0)), 2.0);
+        vec3 color = mix(colorB, colorA, i);
+        gl_FragColor = vec4(color, 1.0);
+      }
+    `,
+    wireframe: true
   });
 
   const mesh = new THREE.Mesh(geometry, material);
   scene.add(mesh);
 
-  // Lights
-  const light1 = new THREE.PointLight(0xff88cc, 2, 10);
-  light1.position.set(3, 3, 3);
+  let perfMode = false;
 
-  const light2 = new THREE.PointLight(0x88ccff, 2, 10);
-  light2.position.set(-3, -3, 3);
-
-  scene.add(light1, light2);
-
-  // Animation loop
-  function animate() {
-    requestAnimationFrame(animate);
-
-    mesh.rotation.x += 0.003;
-    mesh.rotation.y += 0.004;
-
+  function animate(t) {
+    material.uniforms.time.value = t * 0.001;
+    if (!perfMode) mesh.rotation.y += 0.0015;
     renderer.render(scene, camera);
+    requestAnimationFrame(animate);
   }
+  animate(0);
 
-  animate();
-
-  // Resize handling
   window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
+
+  window.addEventListener('scroll', () => {
+    camera.position.z = 6 + window.scrollY * 0.002;
+  });
+
+  window.togglePerf = () => perfMode = !perfMode;
+
+  window.toggleTheme = () => {
+    const dark = document.body.dataset.theme === 'dark';
+    document.body.dataset.theme = dark ? 'light' : 'dark';
+    if (dark) {
+      material.uniforms.colorA.value.set(0.15, 0.15, 0.15);
+      material.uniforms.colorB.value.set(0.9, 0.9, 0.9);
+    } else {
+      material.uniforms.colorA.value.set(0.9, 0.6, 1.0);
+      material.uniforms.colorB.value.set(0.15, 0.15, 0.15);
+    }
+  };
+</script>
+
+<script>
+  function go(id) { document.getElementById(id).scrollIntoView({ behavior: 'smooth' }); }
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.2 });
+
+  /*
+  =====================================================
+  DUMMY GITHUB PROJECT LOADER
+  -----------------------------------------------------
+  Replace username or curate projects manually
+  =====================================================
+  */
+  fetch('https://api.github.com/users/bingerd/repos')
+    .then(r => r.json())
+    .then(repos => {
+      const grid = document.getElementById('projectGrid');
+      repos.slice(0, 6).forEach(repo => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<h3>${repo.name}</h3><p>${repo.description || 'TODO: Add project description.'}</p>`;
+        grid.appendChild(card);
+        observer.observe(card);
+      });
+    });
 </script>
 
 </body>
