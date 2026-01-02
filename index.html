@@ -1,170 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Bing Tan — Machine Learning Engineer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Bing Tan — Machine Learning Engineer. End-to-end ML systems, MLOps, and applied research." />
+<meta charset="UTF-8" />
+<title>Bing Tan — Machine Learning Engineer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Bing Tan — Machine Learning Engineer. End-to-end ML systems, MLOps, and applied research." />
 
-  <!-- OpenGraph -->
-  <meta property="og:title" content="Bing Tan — Machine Learning Engineer" />
-  <meta property="og:description" content="Production ML systems, MLOps, and applied research." />
-  <meta property="og:type" content="website" />
+<meta property="og:title" content="Bing Tan — Machine Learning Engineer" />
+<meta property="og:description" content="Production ML systems, MLOps, and applied research." />
+<meta property="og:type" content="website" />
 
-  <!--
-  =====================================================
-  TODO (YOU WILL EDIT THESE LATER)
-  -----------------------------------------------------
-  - Replace dummy project descriptions
-  - Add real blog posts / links
-  - Add resume PDF link
-  - Replace contact placeholders
-  =====================================================
-  -->
+<style>
+:root {
+  --bg: #000;
+  --fg: #fff;
+  --glass: rgba(0,0,0,0.45);
+  --accent: #d9a4ff;
+}
+[data-theme="light"] {
+  --bg: #f6f6f6;
+  --fg: #0b0b0b;
+  --glass: rgba(255,255,255,0.7);
+  --accent: #7a3cff;
+}
 
-  <style>
-    :root {
-      --bg: #000;
-      --fg: #fff;
-      --glass: rgba(0,0,0,0.45);
-      --accent: #d9a4ff;
-    }
+html, body {
+  margin:0; padding:0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  overflow-x: hidden;
+}
+canvas { position: fixed; inset:0; z-index:0; }
 
-    [data-theme="light"] {
-      --bg: #f6f6f6;
-      --fg: #0b0b0b;
-      --glass: rgba(255,255,255,0.7);
-      --accent: #7a3cff;
-    }
+/* NAV */
+nav {
+  position: fixed; top:0; width:100%;
+  padding: 14px 24px; display:flex; justify-content:space-between; align-items:center;
+  backdrop-filter: blur(12px);
+  background: var(--glass);
+  z-index:10; box-sizing:border-box;
+}
+nav .logo { font-weight:700; letter-spacing:0.12em; white-space:nowrap; }
+nav ul {
+  display:flex; gap:12px; list-style:none; margin:0; padding:0; align-items:center; flex-wrap:wrap; justify-content:flex-end;
+}
+nav li { cursor:pointer; opacity:0.75; white-space:nowrap; }
+nav li:hover { opacity:1; }
+button.toggle {
+  background:none; border:1px solid currentColor; color:inherit; padding:6px 12px; border-radius:999px;
+  cursor:pointer; font-size:0.75rem;
+}
 
-    html, body {
-      margin: 0;
-      padding: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
-      color: var(--fg);
-      overflow-x: hidden;
-    }
+/* SECTIONS */
+section { min-height:100vh; padding:140px 24px 80px; display:flex; align-items:center; justify-content:center; text-align:center; position:relative; z-index:1; }
+.container { max-width:960px; }
+h1 { font-size:clamp(2.6rem,5vw,4.4rem); margin-bottom:0.6rem; }
+h2 { font-weight:400; opacity:0.75; margin-bottom:2.2rem; }
+p { line-height:1.7; opacity:0.85; }
+.cta {
+  display:inline-block; margin-top:3rem; padding:14px 36px; border-radius:999px;
+  border:1px solid currentColor; text-decoration:none; color:inherit; transition:0.2s all;
+}
+.cta:hover { background: rgba(255,255,255,0.15); transform:translateY(-2px); }
 
-    canvas { position: fixed; inset: 0; z-index: 0; }
+/* PROJECTS */
+.projects {
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:28px; margin-top:56px;
+}
+.card {
+  padding:28px; background: rgba(255,255,255,0.06); border-radius:20px; border:1px solid rgba(255,255,255,0.15);
+  text-align:left; backdrop-filter: blur(8px); transition: transform 0.25s, opacity 0.4s; opacity:0; transform:translateY(20px);
+}
+.card.visible { opacity:1; transform:translateY(0); }
+.card:hover { transform:translateY(-6px); }
 
-    /* NAV */
-    nav {
-      position: fixed;
-      top: 0;
-      width: 100%;
-      padding: 14px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      backdrop-filter: blur(12px);
-      background: var(--glass);
-      z-index: 10;
-      box-sizing: border-box;
-    }
+/* CASE STUDY */
+.case-study {
+  margin-top:48px; padding:32px; border:1px dashed var(--accent); border-radius:16px; text-align:left; opacity:0.85;
+}
 
-    nav .logo { font-weight: 700; letter-spacing: 0.12em; white-space: nowrap; }
+/* BLOG CARDS */
+.blog-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:28px; margin-top:32px; }
+.blog-card {
+  display:flex; flex-direction:column; justify-content:space-between; padding:28px; border-radius:20px;
+  background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); backdrop-filter: blur(8px);
+  text-decoration:none; color:inherit; transition: transform 0.25s, opacity 0.4s, box-shadow 0.25s;
+}
+.blog-card:hover { transform:translateY(-6px); box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
+.blog-card h3 { margin:0 0 0.6rem 0; font-size:1.3rem; }
+.blog-card p { margin:0 0 1rem 0; opacity:0.85; line-height:1.6; }
+.blog-card span { font-weight:600; color:var(--accent); align-self:flex-end; }
+.blog-meta { font-size:0.85rem; opacity:0.6; margin-bottom:1rem; }
 
-    nav ul {
-      display: flex;
-      gap: 12px;
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      align-items: center;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
+footer { text-align:center; padding:48px 20px; opacity:0.6; position:relative; z-index:1; }
 
-    nav li { cursor: pointer; opacity: 0.75; white-space: nowrap; }
-    nav li:hover { opacity: 1; }
-
-    button.toggle {
-      background: none;
-      border: 1px solid currentColor;
-      color: inherit;
-      padding: 6px 12px;
-      border-radius: 999px;
-      cursor: pointer;
-      font-size: 0.75rem;
-    }
-
-    section {
-      min-height: 100vh;
-      padding: 140px 24px 80px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      position: relative;
-      z-index: 1;
-    }
-
-    .container { max-width: 960px; }
-
-    h1 { font-size: clamp(2.6rem, 5vw, 4.4rem); margin-bottom: 0.6rem; }
-    h2 { font-weight: 400; opacity: 0.75; margin-bottom: 2.2rem; }
-    p { line-height: 1.7; opacity: 0.85; }
-
-    .cta {
-      display: inline-block;
-      margin-top: 3rem;
-      padding: 14px 36px;
-      border-radius: 999px;
-      border: 1px solid currentColor;
-      text-decoration: none;
-      color: inherit;
-      transition: background 0.2s, transform 0.2s;
-    }
-
-    .cta:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); }
-
-    /* PROJECTS */
-    .projects {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 28px;
-      margin-top: 56px;
-    }
-
-    .card {
-      padding: 28px;
-      background: rgba(255,255,255,0.06);
-      border-radius: 20px;
-      border: 1px solid rgba(255,255,255,0.15);
-      text-align: left;
-      backdrop-filter: blur(8px);
-      transition: transform 0.25s, opacity 0.4s;
-      opacity: 0;
-      transform: translateY(20px);
-    }
-
-    .card.visible { opacity: 1; transform: translateY(0); }
-    .card:hover { transform: translateY(-6px); }
-
-    /* CASE STUDIES (DUMMY) */
-    .case-study {
-      margin-top: 48px;
-      padding: 32px;
-      border: 1px dashed var(--accent);
-      border-radius: 16px;
-      text-align: left;
-      opacity: 0.8;
-    }
-
-    footer {
-      text-align: center;
-      padding: 48px 20px;
-      opacity: 0.6;
-      position: relative;
-      z-index: 1;
-    }
-
-    @media (max-width: 640px) {
-      nav { padding: 10px 14px; }
-      section { padding-top: 120px; }
-    }
-  </style>
+@media(max-width:640px){
+  nav{padding:10px 14px;}
+  section{padding-top:120px;}
+}
+</style>
 </head>
 <body data-theme="dark">
 
@@ -173,13 +108,13 @@
 <nav>
   <div class="logo">BING TAN</div>
   <ul>
-    <li onclick="go('home')">Home</li>
-    <li onclick="go('about')">About</li>
-    <li onclick="go('projects')">Projects</li>
-    <li onclick="go('blog')">Writing</li>
-    <li onclick="go('contact')">Contact</li>
+    <li onclick="go('home')" aria-label="Home">Home</li>
+    <li onclick="go('about')" aria-label="About">About</li>
+    <li onclick="go('projects')" aria-label="Projects">Projects</li>
+    <li onclick="go('blog')" aria-label="Writing">Writing</li>
+    <li onclick="go('contact')" aria-label="Contact">Contact</li>
     <li><button class="toggle" onclick="toggleTheme()">Theme</button></li>
-    <li><button class="toggle" onclick="togglePerf()">Perf</button></li>
+    <li><button class="toggle" onclick="togglePerf()">PERF MODE</button></li>
   </ul>
 </nav>
 
@@ -192,10 +127,9 @@
 </section>
 
 <section id="about">
-  <div class="container">
+  <div class="container" role="main">
     <h1>About</h1>
     <p>
-      <!-- TODO: Replace with your final bio -->
       I design, build, and operate production machine learning systems.
       My background spans data engineering, model training, inference platforms,
       and reliability at scale.
@@ -208,13 +142,6 @@
     <h1>Selected Projects</h1>
     <div class="projects" id="projectGrid"></div>
 
-    <!--
-    =====================================================
-    DUMMY CASE STUDY BLOCK (REPLACE LATER)
-    -----------------------------------------------------
-    Use this for deep dives with diagrams & metrics
-    =====================================================
-    -->
     <div class="case-study">
       <h3>Case Study: Large-Scale Inference Platform</h3>
       <p><strong>Problem:</strong> High-latency GPU inference under bursty load.</p>
@@ -231,129 +158,21 @@
   </div>
 </section>
 
-<style>
-  .blog-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 28px;
-    margin-top: 32px;
-  }
-
-  .blog-card {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 28px;
-    border-radius: 20px;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.15);
-    backdrop-filter: blur(8px);
-    text-decoration: none;
-    color: inherit;
-    transition: transform 0.25s, opacity 0.4s, box-shadow 0.25s;
-  }
-
-  .blog-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
-  }
-
-  .blog-card h3 {
-    margin: 0 0 0.6rem 0;
-    font-size: 1.3rem;
-  }
-
-  .blog-card p {
-    margin: 0 0 1rem 0;
-    opacity: 0.85;
-    line-height: 1.6;
-  }
-
-  .blog-card span {
-    font-weight: 600;
-    color: var(--accent);
-    align-self: flex-end;
-  }
-
-  .blog-meta {
-    font-size: 0.85rem;
-    opacity: 0.6;
-    margin-bottom: 1rem;
-  }
-</style>
-
-<script>
-  // Blog metadata array
-  const blogPosts = [
-    {
-      title: "Designing ML systems that don’t fail in production",
-      description: "Senior-level strategies for robust, production-ready machine learning systems.",
-      href: "docs/blog/2026/ml-production.html",
-      date: "2026-01-01",
-      category: "ML Engineering"
-    },
-    {
-      title: "MLOps lessons learned shipping real models",
-      description: "Key operational insights, monitoring strategies, and deployment lessons from production ML.",
-      href: "docs/blog/2026/mlops-lessons.html",
-      date: "2026-01-02",
-      category: "MLOps"
-    },
-    {
-      title: "Transformers, KV Caching, and Scaling LLMs",
-      description: "Deep dive into transformer internals, KV caching, and production optimizations.",
-      href: "docs/blog/2026/transformers-kv-caching.html",
-      date: "2026-01-03",
-      category: "LLM Engineering"
-    },
-    {
-      title: "Serving PyTorch Models with Rust",
-      description: "High-performance, memory-safe ML serving using Rust and TorchScript.",
-      href: "docs/blog/2026/rust-torch-serving.html",
-      date: "2026-01-04",
-      category: "ML Production"
-    }
-  ];
-
-  // Render blog cards dynamically
-  const grid = document.getElementById('blogGrid');
-
-  blogPosts.forEach(post => {
-    const card = document.createElement('a');
-    card.href = post.href;
-    card.className = 'blog-card';
-    card.innerHTML = `
-      <div class="blog-meta">${post.date} · ${post.category}</div>
-      <h3>${post.title}</h3>
-      <p>${post.description}</p>
-      <span>Read →</span>
-    `;
-    grid.appendChild(card);
-  });
-</script>
-
-
 <section id="contact">
   <div class="container">
     <h1>Contact</h1>
-    <!-- TODO: Replace href values with real links -->
     <p style="display:flex; gap:32px; justify-content:center; align-items:center;">
-      <!-- EMAIL -->
-      <a href="bxntan@gmail.com" aria-label="Email" title="Email" style="color:inherit;">
+      <a href="mailto:bxntan@gmail.com" aria-label="Email" title="Email" style="color:inherit;">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <rect x="2" y="4" width="20" height="16" rx="2" />
           <path d="M22 6l-10 7L2 6" />
         </svg>
       </a>
-
-      <!-- GITHUB -->
       <a href="https://www.github.com/bingerd" aria-label="GitHub" title="GitHub" style="color:inherit;">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
         </svg>
       </a>
-
-      <!-- LINKEDIN -->
       <a href="https://www.linkedin.com/in/bingerd" aria-label="LinkedIn" title="LinkedIn" style="color:inherit;">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
@@ -368,113 +187,134 @@
 <footer>© 2026 Bing Tan</footer>
 
 <script type="module">
-  import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
 
-  const canvas = document.getElementById('bg');
-  const scene = new THREE.Scene();
+const canvas = document.getElementById('bg');
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.z = 6;
 
-  const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.z = 6;
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-
-  const geometry = new THREE.IcosahedronGeometry(1.6, 64);
-
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      time: { value: 0 },
-      colorA: { value: new THREE.Color(0.9, 0.6, 1.0) },
-      colorB: { value: new THREE.Color(0.15, 0.15, 0.15) }
-    },
-    vertexShader: `
-      uniform float time;
-      varying vec3 vNormal;
-      void main() {
-        vNormal = normal;
-        vec3 pos = position + normal * sin(time + position.y * 6.0) * 0.12;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-      }
-    `,
-    fragmentShader: `
-      uniform vec3 colorA;
-      uniform vec3 colorB;
-      varying vec3 vNormal;
-      void main() {
-        float i = pow(0.55 - dot(vNormal, vec3(0.0,0.0,1.0)), 2.0);
-        vec3 color = mix(colorB, colorA, i);
-        gl_FragColor = vec4(color, 1.0);
-      }
-    `,
-    wireframe: true
-  });
-
-  const mesh = new THREE.Mesh(geometry, material);
-  scene.add(mesh);
-
-  let perfMode = false;
-
-  function animate(t) {
-    material.uniforms.time.value = t * 0.001;
-    if (!perfMode) mesh.rotation.y += 0.0015;
-    renderer.render(scene, camera);
-    requestAnimationFrame(animate);
-  }
-  animate(0);
-
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-
-  window.addEventListener('scroll', () => {
-    camera.position.z = 6 + window.scrollY * 0.002;
-  });
-
-  window.togglePerf = () => perfMode = !perfMode;
-
-  window.toggleTheme = () => {
-    const dark = document.body.dataset.theme === 'dark';
-    document.body.dataset.theme = dark ? 'light' : 'dark';
-    if (dark) {
-      material.uniforms.colorA.value.set(0.15, 0.15, 0.15);
-      material.uniforms.colorB.value.set(0.9, 0.9, 0.9);
-    } else {
-      material.uniforms.colorA.value.set(0.9, 0.6, 1.0);
-      material.uniforms.colorB.value.set(0.15, 0.15, 0.15);
+const geometry = new THREE.IcosahedronGeometry(1.6, 64);
+const material = new THREE.ShaderMaterial({
+  uniforms:{
+    time:{ value:0 },
+    colorA:{ value:new THREE.Color(0.9,0.6,1.0) },
+    colorB:{ value:new THREE.Color(0.15,0.15,0.15) }
+  },
+  vertexShader:`
+    uniform float time;
+    varying vec3 vNormal;
+    void main(){
+      vNormal = normal;
+      vec3 pos = position + normal * sin(time + position.y * 6.0) * 0.12;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.0);
     }
-  };
+  `,
+  fragmentShader:`
+    uniform vec3 colorA;
+    uniform vec3 colorB;
+    varying vec3 vNormal;
+    void main(){
+      float i = pow(0.55 - dot(vNormal,vec3(0.0,0.0,1.0)),2.0);
+      vec3 color = mix(colorB,colorA,i);
+      gl_FragColor = vec4(color,1.0);
+    }
+  `,
+  wireframe:true
+});
+
+const mesh = new THREE.Mesh(geometry, material);
+scene.add(mesh);
+
+let perfMode = false;
+
+function animate(t){
+  material.uniforms.time.value = t*0.001;
+  if(perfMode){
+    // CHAOS MODE: spin fast, jitter, rainbow
+    mesh.rotation.x += 0.2 + Math.sin(t*0.01)*0.1;
+    mesh.rotation.y += 0.3 + Math.cos(t*0.01)*0.1;
+    material.uniforms.colorA.value.setHSL(Math.sin(t*0.005)*0.5+0.5,1.0,0.5);
+    material.uniforms.colorB.value.setHSL(Math.cos(t*0.005)*0.5+0.5,1.0,0.5);
+    // Optional: camera shake
+    camera.position.x = Math.sin(t*0.01)*0.2;
+    camera.position.y = Math.cos(t*0.008)*0.2;
+  } else {
+    mesh.rotation.y += 0.0015;
+    camera.position.x = 0;
+    camera.position.y = 0;
+  }
+  renderer.render(scene,camera);
+  requestAnimationFrame(animate);
+}
+animate(0);
+
+window.addEventListener('resize',()=>{
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+
+window.addEventListener('scroll',()=>{ camera.position.z = 6 + window.scrollY*0.002; });
+
+window.togglePerf = ()=> perfMode = !perfMode;
+window.toggleTheme = ()=>{
+  const dark = document.body.dataset.theme==='dark';
+  document.body.dataset.theme = dark?'light':'dark';
+  if(dark){
+    material.uniforms.colorA.value.set(0.15,0.15,0.15);
+    material.uniforms.colorB.value.set(0.9,0.9,0.9);
+  } else {
+    material.uniforms.colorA.value.set(0.9,0.6,1.0);
+    material.uniforms.colorB.value.set(0.15,0.15,0.15);
+  }
+};
 </script>
 
 <script>
-  function go(id) { document.getElementById(id).scrollIntoView({ behavior: 'smooth' }); }
+function go(id){ document.getElementById(id).scrollIntoView({behavior:'smooth'}); }
 
-  const observer = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-  }, { threshold: 0.2 });
+const observer = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add('visible');
+    }
+  });
+},{ threshold:0.2 });
 
-  /*
-  =====================================================
-  DUMMY GITHUB PROJECT LOADER
-  -----------------------------------------------------
-  Replace username or curate projects manually
-  =====================================================
-  */
-  fetch('https://api.github.com/users/bingerd/repos')
-    .then(r => r.json())
-    .then(repos => {
-      const grid = document.getElementById('projectGrid');
-      repos.slice(0, 6).forEach(repo => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `<h3>${repo.name}</h3><p>${repo.description || 'TODO: Add project description.'}</p>`;
-        grid.appendChild(card);
-        observer.observe(card);
-      });
+fetch('https://api.github.com/users/bingerd/repos')
+  .then(r=>r.json())
+  .then(repos=>{
+    const grid=document.getElementById('projectGrid');
+    repos.slice(0,6).forEach((repo,i)=>{
+      const card=document.createElement('div');
+      card.className='card';
+      card.style.transitionDelay = `${i*100}ms`;
+      card.innerHTML=`<h3>${repo.name}</h3><p>${repo.description||'No description provided.'}</p>`;
+      grid.appendChild(card);
+      observer.observe(card);
     });
-</script>
+  });
 
+// BLOG
+const blogPosts=[
+  { title:"Designing ML systems that don’t fail in production", description:"Senior-level strategies for robust, production-ready machine learning systems.", href:"docs/blog/2026/ml-production.html", date:"2026-01-01", category:"ML Engineering"},
+  { title:"MLOps lessons learned shipping real models", description:"Key operational insights, monitoring strategies, and deployment lessons from production ML.", href:"docs/blog/2026/mlops-lessons.html", date:"2026-01-02", category:"MLOps"},
+  { title:"Transformers, KV Caching, and Scaling LLMs", description:"Deep dive into transformer internals, KV caching, and production optimizations.", href:"docs/blog/2026/transformers-kv-caching.html", date:"2026-01-03", category:"LLM Engineering"},
+  { title:"Serving PyTorch Models with Rust", description:"High-performance, memory-safe ML serving using Rust and TorchScript.", href:"docs/blog/2026/rust-torch-serving.html", date:"2026-01-04", category:"ML Production"}
+];
+
+const gridB = document.getElementById('blogGrid');
+blogPosts.forEach(post=>{
+  const card=document.createElement('a');
+  card.href=post.href; card.className='blog-card';
+  card.innerHTML=`<div class="blog-meta">${post.date} · ${post.category}</div><h3>${post.title}</h3><p>${post.description}</p><span>Read →</span>`;
+  gridB.appendChild(card);
+});
+</script>
 </body>
 </html>
