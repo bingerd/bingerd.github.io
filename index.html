@@ -236,23 +236,36 @@
 <section id="contact">
   <div class="container">
     <h1>Contact</h1>
-    <!-- TODO: Replace with final links -->
-    <p>
-      bxntan@gmail.com<br />
-      github.com/bingerd<br />
-      linkedin.com/in/bingerd
+    <!-- TODO: Replace href values with real links -->
+    <p style="display:flex; gap:32px; justify-content:center; align-items:center;">
+      <!-- EMAIL -->
+      <a href="bxntan@gmail.com" aria-label="Email" title="Email" style="color:inherit;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="16" rx="2" />
+          <path d="M22 6l-10 7L2 6" />
+        </svg>
+      </a>
+
+      <!-- GITHUB -->
+      <a href="https://www.github.com/bingerd" aria-label="GitHub" title="GitHub" style="color:inherit;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+        </svg>
+      </a>
+
+      <!-- LINKEDIN -->
+      <a href="https://www.linkedin.com/in/bingerd" aria-label="LinkedIn" title="LinkedIn" style="color:inherit;">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+          <rect x="2" y="9" width="4" height="12" />
+          <circle cx="4" cy="4" r="2" />
+        </svg>
+      </a>
     </p>
   </div>
 </section>
 
-<footer>
-  © <span id="year"></span> Bing Tan
-</footer>
-
-<script>
-  document.getElementById('year').textContent = new Date().getFullYear();
-</script>
-
+<footer>© 2026 Bing Tan</footer>
 
 <script type="module">
   import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
