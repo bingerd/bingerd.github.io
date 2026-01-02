@@ -158,6 +158,308 @@ footer { text-align:center; padding:48px 20px; opacity:0.6; position:relative; z
   </div>
 </section>
 
+<section id="Useful Endpoints">
+  <div class="container">
+    <h1>ML Playground Models</h1>
+    <p>Try these state-of-the-art ML endpoints for free!</p>
+
+    <div style="display:flex; flex-direction:column; gap:32px; margin-top:24px;">
+
+      <!-- Template for each endpoint -->
+      <div class="endpoint-card" style="padding:24px; border-radius:16px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); backdrop-filter:blur(8px);">
+        <h2>/predict/shorts</h2>
+        <p>Will you wear shorts today? Based on weather + thermal comfort.</p>
+        <label>Temperature (°C) <input type="number" id="shorts-temp" placeholder="23" style="width:100%; padding:6px; border-radius:6px;"></label>
+        <label>Humidity (%) <input type="number" id="shorts-humidity" placeholder="40" style="width:100%; padding:6px; border-radius:6px;"></label>
+        <label>Wind (m/s) <input type="number" id="shorts-wind" placeholder="2" style="width:100%; padding:6px; border-radius:6px;"></label>
+        <label>Condition
+          <select id="shorts-condition" style="width:100%; padding:6px; border-radius:6px;">
+            <option>Sunny</option><option>Cloudy</option><option>Rainy</option><option>Storm</option><option>Snow</option>
+          </select>
+        </label>
+        <button onclick="predictShortsEndpoint()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
+        <pre id="shorts-output" style="margin-top:8px;"></pre>
+      </div>
+
+      <div class="endpoint-card">
+        <h2>/predict/coffee-need</h2>
+        <p>Do you need coffee right now?</p>
+        <label>Heart rate <input type="number" id="coffee-hr" placeholder="75"></label>
+        <label>Hours sleep <input type="number" id="coffee-sleep" placeholder="6"></label>
+        <label>Mood
+          <select id="coffee-mood"><option>Happy</option><option>Tired</option><option>Stressed</option><option>Neutral</option></select>
+        </label>
+        <label>Time of day <input type="number" id="coffee-hour" placeholder="14"></label>
+        <button onclick="predictCoffee()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
+        <pre id="coffee-output" style="margin-top:8px;"></pre>
+      </div>
+
+      <div class="endpoint-card">
+        <h2>/meme-generator</h2>
+        <p>Generate a random ML meme for your stress level.</p>
+        <label>Stress level (1-10) <input type="number" id="meme-stress" placeholder="5"></label>
+        <label>Framework <input type="text" id="meme-framework" placeholder="PyTorch"></label>
+        <button onclick="generateMeme()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Generate Meme</button>
+        <pre id="meme-output" style="margin-top:8px;"></pre>
+      </div>
+
+      <div class="endpoint-card">
+        <h2>/predict/work-from-home-outfit</h2>
+        <p>Perfect remote work outfit based on your day.</p>
+        <label>Zoom calls today <input type="number" id="outfit-zoom" placeholder="2"></label>
+        <label>Coffee intake (cups) <input type="number" id="outfit-coffee" placeholder="1"></label>
+        <label>Weather <input type="text" id="outfit-weather" placeholder="Sunny"></label>
+        <button onclick="predictOutfit()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
+        <pre id="outfit-output" style="margin-top:8px;"></pre>
+      </div>
+
+      <div class="endpoint-card">
+        <h2>/predict/motivation</h2>
+        <p>How motivated will you be today?</p>
+        <label>Day of week <input type="text" id="motivation-day" placeholder="Monday"></label>
+        <label>Hours slept <input type="number" id="motivation-sleep" placeholder="7"></label>
+        <label>Calendar meetings <input type="number" id="motivation-meetings" placeholder="3"></label>
+        <button onclick="predictMotivation()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
+        <pre id="motivation-output" style="margin-top:8px;"></pre>
+      </div>
+
+      <div class="endpoint-card">
+        <h2>/predict/pizza-topping</h2>
+        <p>Optimal pizza topping combo based on your mood and time.</p>
+        <label>Mood <input type="text" id="pizza-mood" placeholder="Happy"></label>
+        <label>Time of day <input type="number" id="pizza-hour" placeholder="19"></label>
+        <label>Weather <input type="text" id="pizza-weather" placeholder="Rainy"></label>
+        <button onclick="predictPizza()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
+        <pre id="pizza-output" style="margin-top:8px;"></pre>
+      </div>
+
+      <div class="endpoint-card">
+        <h2>/predict/LLM-sanity</h2>
+        <p>Is your LLM about to hallucinate?</p>
+        <label>Prompt length <input type="number" id="llm-prompt" placeholder="120"></label>
+        <label>Temperature <input type="number" id="llm-temp" placeholder="0.7" step="0.1"></label>
+        <label>Token count <input type="number" id="llm-tokens" placeholder="512"></label>
+        <button onclick="predictLLM()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
+        <pre id="llm-output" style="margin-top:8px;"></pre>
+      </div>
+
+      <div class="endpoint-card">
+        <h2>/predict/pet-reaction</h2>
+        <p>Predict your pet’s reaction to your new haircut.</p>
+        <label>Pet type <input type="text" id="pet-type" placeholder="Cat"></label>
+        <label>Haircut length <input type="text" id="pet-haircut" placeholder="Short"></label>
+        <label>Hair color <input type="text" id="pet-color" placeholder="Brown"></label>
+        <button onclick="predictPet()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
+        <pre id="pet-output" style="margin-top:8px;"></pre>
+      </div>
+
+      <div class="endpoint-card">
+        <h2>/predict/marathon-performance</h2>
+        <p>Predict your marathon finish time (fun version).</p>
+        <label>Distance (km) <input type="number" id="marathon-distance" placeholder="10"></label>
+        <label>Playlist type <input type="text" id="marathon-playlist" placeholder="Beyoncé"></label>
+        <label>Hydration level <input type="number" id="marathon-hydration" placeholder="3"></label>
+        <label>Weather <input type="text" id="marathon-weather" placeholder="Sunny"></label>
+        <button onclick="predictMarathon()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
+        <pre id="marathon-output" style="margin-top:8px;"></pre>
+      </div>
+
+      <div class="endpoint-card">
+        <h2>/predict/perf-mode-chaos</h2>
+        <p>How chaotic will Perf Mode get today?</p>
+        <label>Coffee level (cups) <input type="number" id="chaos-coffee" placeholder="2"></label>
+        <label>Last commit hour <input type="number" id="chaos-commit" placeholder="23"></label>
+        <label>Ambient music <input type="text" id="chaos-music" placeholder="Lo-fi"></label>
+        <button onclick="predictChaos()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
+        <pre id="chaos-output" style="margin-top:8px;"></pre>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<style>
+/* Endpoint Cards */
+.endpoint-card {
+  padding:24px; 
+  border-radius:16px; 
+  background: rgba(255,255,255,0.06); 
+  border:1px solid rgba(255,255,255,0.15); 
+  backdrop-filter: blur(8px);
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+/* Inputs */
+.endpoint-card input, .endpoint-card select {
+  width:100%;
+  padding:8px 12px;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.05);
+  color: var(--fg);
+  font-size:0.95rem;
+  transition: 0.2s all;
+}
+
+.endpoint-card input:focus, .endpoint-card select:focus {
+  outline:none;
+  border-color: var(--accent);
+  background: rgba(255,255,255,0.1);
+}
+
+/* Buttons */
+.endpoint-card button {
+  margin-top:8px;
+  padding:10px;
+  border-radius:999px;
+  background: var(--accent);
+  font-weight:600;
+  color: var(--fg);
+  border:none;
+  cursor:pointer;
+  transition: 0.2s all;
+}
+.endpoint-card button:hover {
+  transform: translateY(-2px);
+  opacity:0.9;
+}
+
+/* Pre output */
+.endpoint-card pre {
+  margin-top:8px;
+  background: rgba(255,255,255,0.05);
+  padding:12px;
+  border-radius:8px;
+  font-size:0.95rem;
+  overflow-x:auto;
+  color: var(--fg);
+}
+
+/* Remove default h2 margin */
+.endpoint-card h2 { margin:0; font-size:1.3rem; }
+
+.endpoint-card p { margin:0.3em 0 0.8em 0; opacity:0.85; }
+</style>
+
+<script>
+/* ==== ENDPOINT FUNCTIONS ==== */
+
+// 1. Shorts predictor (same TCI logic)
+function thermalComfortIndex(temp, humidity, wind){
+  const wind_factor = -0.5 * wind;
+  return temp - 0.55*(1 - humidity/100)*(temp-14) + wind_factor;
+}
+function predictShortsEndpoint(){
+  const temp = parseFloat(document.getElementById("shorts-temp").value) || 23;
+  const humidity = parseFloat(document.getElementById("shorts-humidity").value) || 40;
+  const wind = parseFloat(document.getElementById("shorts-wind").value) || 2;
+  const condition = document.getElementById("shorts-condition").value;
+  const TCI = thermalComfortIndex(temp, humidity, wind);
+  const wear = TCI>=20 && !["rainy","storm","snow"].includes(condition.toLowerCase());
+  document.getElementById("shorts-output").textContent = wear
+    ? `TCI: ${TCI.toFixed(1)}°C → Shorts! 😎`
+    : `TCI: ${TCI.toFixed(1)}°C → Maybe pants 🥶`;
+}
+
+// 2. Coffee need
+function predictCoffee(){
+  const hr = parseFloat(document.getElementById("coffee-hr").value) || 70;
+  const sleep = parseFloat(document.getElementById("coffee-sleep").value) || 6;
+  const mood = document.getElementById("coffee-mood").value;
+  const hour = parseFloat(document.getElementById("coffee-hour").value) || 14;
+  const score = (80-hr)/10 + (8-sleep)*1.5 + (mood==="Tired"?2:0) + (hour>10?1:0);
+  const need = score>2;
+  document.getElementById("coffee-output").textContent = need ? "☕ Triple espresso time!" : "😌 No coffee needed yet.";
+}
+
+// 3. Meme generator
+function generateMeme(){
+  const stress = parseInt(document.getElementById("meme-stress").value) || 5;
+  const fw = document.getElementById("meme-framework").value || "PyTorch";
+  const memes = [
+    `When ${fw} finally trains without exploding 🤯`,
+    `Debugging ${fw} at 3am 🦾`,
+    `${fw} model is hallucinating again 🌀`,
+    `Me trying to vectorize my ${fw} code...`
+  ];
+  const idx = Math.floor(Math.random()*memes.length);
+  document.getElementById("meme-output").textContent = memes[idx];
+}
+
+// 4. Work from home outfit
+function predictOutfit(){
+  const zoom = parseInt(document.getElementById("outfit-zoom").value) || 2;
+  const coffee = parseInt(document.getElementById("outfit-coffee").value) || 1;
+  const weather = document.getElementById("outfit-weather").value || "Sunny";
+  let outfit = "Pajamas all day 🩳";
+  if(zoom>0) outfit = "Business top, pajama bottom 👔🩳";
+  if(weather.toLowerCase().includes("rain")) outfit += " + Raincoat 🌧️";
+  document.getElementById("outfit-output").textContent = outfit;
+}
+
+// 5. Motivation
+function predictMotivation(){
+  const sleep = parseFloat(document.getElementById("motivation-sleep").value) || 7;
+  const meetings = parseInt(document.getElementById("motivation-meetings").value) || 2;
+  const day = document.getElementById("motivation-day").value || "Monday";
+  const score = sleep - meetings*0.5 + (day.toLowerCase().includes("mon")? -1:0);
+  let msg = score>5 ? "High motivation ⚡" : score>3 ? "Moderate motivation 🙂" : "Low motivation 🛌";
+  document.getElementById("motivation-output").textContent = msg;
+}
+
+// 6. Pizza topping
+function predictPizza(){
+  const mood = document.getElementById("pizza-mood").value || "Happy";
+  const hour = parseInt(document.getElementById("pizza-hour").value) || 19;
+  const weather = document.getElementById("pizza-weather").value || "Sunny";
+  const toppings = ["Pepperoni","Mushroom","Pineapple","Jalapeño","Extra cheese","Olives"];
+  const choice = toppings[Math.floor(Math.random()*toppings.length)];
+  document.getElementById("pizza-output").textContent = `Pizza topping for your mood: ${choice} 🍕`;
+}
+
+// 7. LLM sanity
+function predictLLM(){
+  const prompt = parseInt(document.getElementById("llm-prompt").value) || 100;
+  const temp = parseFloat(document.getElementById("llm-temp").value) || 0.7;
+  const tokens = parseInt(document.getElementById("llm-tokens").value) || 512;
+  const score = prompt*0.01 + temp*5 + tokens*0.001;
+  const status = score>10 ? "LLM is hallucinating 🌀" : "LLM stable ✅";
+  document.getElementById("llm-output").textContent = status;
+}
+
+// 8. Pet reaction
+function predictPet(){
+  const pet = document.getElementById("pet-type").value || "Cat";
+  const haircut = document.getElementById("pet-haircut").value || "Short";
+  const color = document.getElementById("pet-color").value || "Brown";
+  const reactions = ["Judgment intensifies 😾","Confused 🐶","Excited 🐕","Indifferent 😼"];
+  const idx = Math.floor(Math.random()*reactions.length);
+  document.getElementById("pet-output").textContent = `${pet} reaction: ${reactions[idx]}`;
+}
+
+// 9. Marathon performance
+function predictMarathon(){
+  const dist = parseInt(document.getElementById("marathon-distance").value) || 10;
+  const playlist = document.getElementById("marathon-playlist").value || "Beyoncé";
+  const hydration = parseInt(document.getElementById("marathon-hydration").value) || 3;
+  const weather = document.getElementById("marathon-weather").value || "Sunny";
+  const pace = 5 + Math.random(); // minutes/km
+  const time = pace*dist;
+  document.getElementById("marathon-output").textContent = `You'll run ${dist}km in ${time.toFixed(1)} min (~${pace.toFixed(1)} min/km) while listening to ${playlist} 🎵`;
+}
+
+// 10. Perf-mode chaos
+function predictChaos(){
+  const coffee = parseInt(document.getElementById("chaos-coffee").value) || 2;
+  const commit = parseInt(document.getElementById("chaos-commit").value) || 23;
+  const music = document.getElementById("chaos-music").value || "Lo-fi";
+  const chaos = Math.min(10, coffee + Math.random()*3 + (commit>20?1:0));
+  document.getElementById("chaos-output").textContent = `Perf mode chaos level: ${chaos.toFixed(1)}/10 🌈🔥 (music: ${music})`;
+}
+</script>
+
 <section id="contact">
   <div class="container">
     <h1>Contact</h1>
@@ -183,6 +485,7 @@ footer { text-align:center; padding:48px 20px; opacity:0.6; position:relative; z
     </p>
   </div>
 </section>
+
 
 <footer>© 2026 Bing Tan</footer>
 
