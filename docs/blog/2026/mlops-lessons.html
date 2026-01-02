@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Designing ML Systems That Don’t Fail in Production — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Senior-level insights into designing robust, production-ready machine learning systems." />
+
+  <style>
+    :root {
+      --bg: #000;
+      --fg: #fff;
+      --glass: rgba(0,0,0,0.45);
+      --accent: #d9a4ff;
+    }
+    [data-theme="light"] {
+      --bg: #f6f6f6;
+      --fg: #0b0b0b;
+      --glass: rgba(255,255,255,0.7);
+      --accent: #7a3cff;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    nav {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      padding: 14px 24px;
+      backdrop-filter: blur(12px);
+      background: var(--glass);
+      z-index: 10;
+    }
+
+    nav .logo { font-weight: 700; letter-spacing: 0.12em; }
+    nav ul { display: flex; gap: 16px; list-style: none; margin: 0; padding: 0; align-items: center; }
+    nav li { cursor: pointer; opacity: 0.8; }
+    nav li:hover { opacity: 1; }
+    nav a { color: inherit; text-decoration: none; }
+
+    main {
+      max-width: 860px;
+      margin: 140px auto 80px;
+      padding: 0 24px;
+    }
+
+    h1 { font-size: clamp(2.4rem, 5vw, 3.8rem); margin-bottom: 0.8rem; }
+    h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); margin-top: 2.4rem; color: var(--accent); }
+    p { margin-bottom: 1.5rem; }
+    code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px; }
+    pre { background: rgba(255,255,255,0.08); padding: 16px; border-radius: 12px; overflow-x: auto; }
+    blockquote { border-left: 4px solid var(--accent); padding-left: 12px; opacity: 0.8; margin: 1.5rem 0; }
+
+    footer { text-align: center; padding: 48px 24px; opacity: 0.6; }
+
+    button.toggle {
+      background: none; border: 1px solid currentColor; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+    }
+  </style>
+</head>
+<body data-theme="dark">
+
+<nav>
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../index.html">Home</a></li>
+    <li><a href="../../docs/blog.html">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Designing ML Systems That Don’t Fail in Production</h1>
+  <p>Building machine learning systems is challenging, but designing them to survive the real-world scale, edge cases, and operational complexity is an entirely different level. This article covers advanced strategies for robust ML production systems.</p>
+
+  <h2>1. Data Engineering: The Foundation</h2>
+  <p>Reliable ML starts with reliable data. Ensure your pipelines are:</p>
+  <ul>
+    <li><strong>Idempotent:</strong> Running pipelines multiple times should produce consistent outputs.</li>
+    <li><strong>Versioned:</strong> Track dataset versions for reproducibility.</li>
+    <li><strong>Validated:</strong> Schema checks, null handling, anomaly detection.</li>
+  </ul>
+
+  <h2>2. Model Deployment Patterns</h2>
+  <p>Some advanced deployment approaches include:</p>
+  <ul>
+    <li><strong>Blue-Green Deployments:</strong> Deploy new models alongside old ones and gradually switch traffic.</li>
+    <li><strong>Shadow Mode:</strong> Run a new model on live data without affecting production predictions.</li>
+    <li><strong>Canary Releases:</strong> Expose a small percentage of traffic to a new model before full rollout.</li>
+  </ul>
+
+  <pre><code>// Example: Shadow Mode prediction in Python
+predictions = new_model.predict(X_live)
+log(predictions)  # store for monitoring, not returned to users
+</code></pre>
+
+  <h2>3. Monitoring and Observability</h2>
+  <p>Key metrics to monitor:</p>
+  <ul>
+    <li>Prediction drift vs training distribution</li>
+    <li>Data integrity and schema changes</li>
+    <li>Latency and throughput for inference</li>
+    <li>Resource usage (GPU/CPU/Memory)</li>
+  </ul>
+
+  <blockquote>
+    “Monitoring is not optional. A model that works in the lab can silently fail in production.” — ML Engineering Best Practices
+  </blockquote>
+
+  <h2>4. Reliability at Scale</h2>
+  <p>Production ML requires:</p>
+  <ul>
+    <li>Autoscaling inference services</li>
+    <li>Retry & queue mechanisms for upstream data failures</li>
+    <li>Graceful degradation strategies when models fail</li>
+  </ul>
+
+  <h2>5. Continuous Training and Retraining</h2>
+  <p>Automate retraining pipelines but with caution:</p>
+  <ul>
+    <li>Track model performance and drift before retraining.</li>
+    <li>Use versioned artifacts to rollback if needed.</li>
+    <li>Schedule retraining based on data volume or drift thresholds, not arbitrary intervals.</li>
+  </ul>
+
+  <h2>Conclusion</h2>
+  <p>Robust ML systems require operational rigor, observability, and engineering discipline. Combining good data pipelines, safe deployment patterns, and continuous monitoring dramatically reduces downtime and model failure in production.</p>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script>
+  window.toggleTheme = () => {
+    const dark = document.body.dataset.theme === 'dark';
+    document.body.dataset.theme = dark ? 'light' : 'dark';
+  };
+</script>
+
+</body>
+</html>

@@ -227,11 +227,111 @@
 <section id="blog">
   <div class="container">
     <h1>Writing</h1>
-    <!-- TODO: Replace with real blog posts or MDX links -->
-    <p>Designing ML systems that don’t fail in production.</p>
-    <p>MLOps lessons learned shipping real models.</p>
+    <div class="blog-grid" id="blogGrid"></div>
   </div>
 </section>
+
+<style>
+  .blog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 28px;
+    margin-top: 32px;
+  }
+
+  .blog-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 28px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    backdrop-filter: blur(8px);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.25s, opacity 0.4s, box-shadow 0.25s;
+  }
+
+  .blog-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  }
+
+  .blog-card h3 {
+    margin: 0 0 0.6rem 0;
+    font-size: 1.3rem;
+  }
+
+  .blog-card p {
+    margin: 0 0 1rem 0;
+    opacity: 0.85;
+    line-height: 1.6;
+  }
+
+  .blog-card span {
+    font-weight: 600;
+    color: var(--accent);
+    align-self: flex-end;
+  }
+
+  .blog-meta {
+    font-size: 0.85rem;
+    opacity: 0.6;
+    margin-bottom: 1rem;
+  }
+</style>
+
+<script>
+  // Blog metadata array
+  const blogPosts = [
+    {
+      title: "Designing ML systems that don’t fail in production",
+      description: "Senior-level strategies for robust, production-ready machine learning systems.",
+      href: "docs/blog/2026/ml-production.html",
+      date: "2026-01-01",
+      category: "ML Engineering"
+    },
+    {
+      title: "MLOps lessons learned shipping real models",
+      description: "Key operational insights, monitoring strategies, and deployment lessons from production ML.",
+      href: "docs/blog/2026/mlops-lessons.html",
+      date: "2026-01-02",
+      category: "MLOps"
+    },
+    {
+      title: "Transformers, KV Caching, and Scaling LLMs",
+      description: "Deep dive into transformer internals, KV caching, and production optimizations.",
+      href: "docs/blog/2026/transformers-kv-caching.html",
+      date: "2026-01-03",
+      category: "LLM Engineering"
+    },
+    {
+      title: "Serving PyTorch Models with Rust",
+      description: "High-performance, memory-safe ML serving using Rust and TorchScript.",
+      href: "docs/blog/2026/rust-torch-serving.html",
+      date: "2026-01-04",
+      category: "ML Production"
+    }
+  ];
+
+  // Render blog cards dynamically
+  const grid = document.getElementById('blogGrid');
+
+  blogPosts.forEach(post => {
+    const card = document.createElement('a');
+    card.href = post.href;
+    card.className = 'blog-card';
+    card.innerHTML = `
+      <div class="blog-meta">${post.date} · ${post.category}</div>
+      <h3>${post.title}</h3>
+      <p>${post.description}</p>
+      <span>Read →</span>
+    `;
+    grid.appendChild(card);
+  });
+</script>
+
 
 <section id="contact">
   <div class="container">
