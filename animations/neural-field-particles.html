@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Neural Field Particles</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+:root {
+  --bg:#000;
+  --fg:#fff;
+  --accent:#d9a4ff;
+}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:system-ui;
+}
+header{
+  max-width:1100px;
+  margin:120px auto 32px;
+  padding:0 24px;
+}
+canvas{
+  display:block;
+  width:100%;
+  height:70vh;
+  border-radius:24px;
+}
+.frame{
+  max-width:1100px;
+  margin:0 auto;
+  padding:0 24px 80px;
+}
+a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+
+<header>
+  <a href="/animations/index.html">← Back</a>
+  <h1>Neural Field Particles</h1>
+  <p>Particles advected through a continuous vector field.</p>
+</header>
+
+<div class="frame">
+  <canvas id="c"></canvas>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
+
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x000000,4,12);
+
+const camera = new THREE.PerspectiveCamera(55,1,0.1,100);
+camera.position.set(0,0,7);
+
+const particles = 8000;
+const positions = new Float32Array(particles*3);
+
+for(let i=0;i<positions.length;i+=3){
+  positions[i]   = (Math.random()-0.5)*6;
+  positions[i+1] = (Math.random()-0.5)*6;
+  positions[i+2] = (Math.random()-0.5)*6;
+}
+
+const geo = new THREE.BufferGeometry();
+geo.setAttribute('position',new THREE.BufferAttribute(positions,3));
+
+const mat = new THREE.PointsMaterial({
+  size:0.025,
+  color:0xd9a4ff,
+  transparent:true,
+  opacity:0.85
+});
+
+const points = new THREE.Points(geo,mat);
+scene.add(points);
+
+function field(x,y,z,t){
+  return {
+    x: Math.sin(y+t)*0.002,
+    y: Math.cos(x+z+t)*0.002,
+    z: Math.sin(x+y+t)*0.002
+  };
+}
+
+function resize(){
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+resize();
+addEventListener('resize',resize);
+
+function animate(t){
+  const p = geo.attributes.position.array;
+  const time = t*0.0003;
+
+  for(let i=0;i<p.length;i+=3){
+    const f = field(p[i],p[i+1],p[i+2],time);
+    p[i]+=f.x;
+    p[i+1]+=f.y;
+    p[i+2]+=f.z;
+  }
+  geo.attributes.position.needsUpdate = true;
+
+  camera.position.x = Math.sin(time)*0.5;
+  camera.position.y = Math.cos(time)*0.3;
+  camera.lookAt(0,0,0);
+
+  renderer.render(scene,camera);
+  requestAnimationFrame(animate);
+}
+animate(0);
+</script>
+
+</body>
+</html>

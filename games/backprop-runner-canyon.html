@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Backprop Runner: Final Manifold</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body { margin: 0; background: #000; color: #fff; overflow: hidden; font-family: 'Courier New', monospace; }
+  canvas { position: fixed; inset: 0; }
+  
+  .hud { position: fixed; top: 0; left: 0; width: 100%; padding: 20px; box-sizing: border-box; display: flex; justify-content: space-between; pointer-events: none; z-index: 10; }
+  .stat-box { background: rgba(0, 0, 0, 0.8); padding: 15px; border: 1px solid #333; border-left: 5px solid #ff0055; }
+  .stat-label { font-size: 12px; color: #ff0055; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; font-weight: bold; }
+  .stat-value { font-size: 36px; font-weight: 900; color: #fff; text-shadow: 0 0 5px #ff0055; }
+  
+  #controls-hint { position: fixed; bottom: 40px; width: 100%; text-align: center; color: #666; font-size: 12px; letter-spacing: 8px; pointer-events: none; text-transform: uppercase; z-index: 15;}
+  
+  /* CRT Scanline effect overlay */
+  .scanlines { position: fixed; inset: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%; pointer-events: none; z-index: 5; }
+
+  #loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: #00ffaa; letter-spacing: 2px; text-transform: uppercase; background: #000; padding: 20px; border: 1px solid #00ffaa; }
+  
+  .game-over { position: fixed; inset: 0; background: rgba(5, 0, 2, 0.95); display: flex; align-items: center; justify-content: center; flex-direction: column; display: none; z-index: 20;}
+  .game-over h1 { color: #ff0000; font-size: 90px; margin: 0; text-shadow: 5px 5px 0px #300; font-weight: 900; letter-spacing: -2px; }
+  .game-over p { font-size: 18px; color: #fff; margin-top: 20px; letter-spacing: 4px; text-transform: uppercase; }
+</style>
+</head>
+<body>
+
+<!-- <div id="controls-hint">← Strafe (A) &nbsp; • &nbsp; Jump (SPACE) &nbsp; • &nbsp; Strafe (D) →</div> -->
+
+
+<div class="scanlines"></div>
+<div id="loading">Synthesizing Environment...</div>
+
+
+
+<div class="hud">
+    <div class="stat-box">
+        <div class="stat-label">Loss Function</div>
+        <div class="stat-value" id="lossDisplay"></div>
+    </div>
+    <div class="stat-box" style="border-left-color:#ff0055">
+        <div class="stat-label">Epochs / Sec</div>
+        <div class="stat-value" id="speedDisplay">0.0</div>
+    </div>
+</div>
+
+<div id="controls-hint">← Strafe (A) &nbsp; • &nbsp; Jump (Space) &nbsp; • &nbsp; Strafe (D) →</div>
+
+<div id="gameOverScreen" class="game-over">
+    <h1>GRADIENT COLLAPSE</h1>
+    <p>[ SPACE to Reboot ]</p>
+</div>
+
+
+<canvas id="c"></canvas>
+
+<script type="module">
+import RAPIER from 'https://cdn.skypack.dev/@dimforge/rapier3d-compat';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
+
+await RAPIER.init();
+document.getElementById('loading').style.display = 'none';
+
+// --- CONFIGURATION ---
+const LANE_COUNT = 7; 
+const LANE_WIDTH = 3.5; 
+const MAX_LANE = 3; 
+const TOTAL_ROAD_WIDTH = LANE_COUNT * LANE_WIDTH;
+
+const INITIAL_SPEED = 15.0;
+const GRAVITY = -100.0; 
+const JUMP_FORCE = 22.0; 
+
+let currentSpeed = INITIAL_SPEED;
+let currentLoss = 4.478;
+
+// --- THREE.JS ---
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050510);
+scene.fog = new THREE.FogExp2(0x050510, 0.015); // Clearer visibility
+
+const camera = new THREE.PerspectiveCamera(90, innerWidth/innerHeight, 0.1, 400);
+const renderer = new THREE.WebGLRenderer({canvas: document.getElementById('c'), antialias: true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+
+// Lighting (Brighter)
+const ambLight = new THREE.AmbientLight(0xffffff, 0.6); // Increased ambient
+scene.add(ambLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+dirLight.position.set(20, 50, 20);
+dirLight.castShadow = true;
+Object.assign(dirLight.shadow.camera, {top:50, bottom:-50, left:-50, right:50});
+scene.add(dirLight);
+
+// Under-glow light for the void
+const voidLight = new THREE.PointLight(0x0044ff, 2, 100);
+voidLight.position.set(0, -20, 0);
+scene.add(voidLight);
+
+// --- PHYSICS ---
+const world = new RAPIER.World({x:0, y:GRAVITY, z:0});
+
+// --- ROAD / BRIDGE ---
+// Physics Body (Kinematic)
+const floorBody = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0,-1,0));
+world.createCollider(RAPIER.ColliderDesc.cuboid(TOTAL_ROAD_WIDTH/2, 1, 150), floorBody);
+
+// Visual Bridge (Brighter)
+const bridgeGeo = new THREE.BoxGeometry(TOTAL_ROAD_WIDTH, 1, 400);
+const bridgeMat = new THREE.MeshStandardMaterial({
+    color: 0x151515, // Dark Grey
+    roughness: 0.2,
+    metalness: 0.5,
+    emissive: 0x111111
+});
+const bridgeMesh = new THREE.Mesh(bridgeGeo, bridgeMat);
+bridgeMesh.position.y = -0.5;
+scene.add(bridgeMesh);
+
+// Neon Grid Overlay (Visibility)
+const gridHelper = new THREE.GridHelper(TOTAL_ROAD_WIDTH, LANE_COUNT, 0x00ffcc, 0x004455);
+gridHelper.position.y = 0.05; // Slightly above road
+gridHelper.scale.z = 20; // Stretch
+scene.add(gridHelper);
+
+
+// --- TERRAIN (PROCEDURAL CANYON) ---
+const terrainGeo = new THREE.PlaneGeometry(500, 500, 80, 80);
+const pos = terrainGeo.attributes.position;
+for(let i=0; i<pos.count; i++){
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    // Create a "Canyon" shape: Low in middle, High on sides
+    const distFromCenter = Math.abs(x) / 250;
+    const canyonFactor = Math.pow(distFromCenter, 2) * 50; 
+    
+    // Noise
+    const z = Math.sin(x*0.1) * 5 + Math.cos(y*0.1) * 5 + canyonFactor + (Math.random()*2);
+    pos.setZ(i, z);
+}
+terrainGeo.computeVertexNormals();
+
+const terrainMat = new THREE.MeshStandardMaterial({
+    color: 0x000000,
+    emissive: 0x001133, // Deep blue glow
+    wireframe: true,
+    transparent: true,
+    opacity: 0.4
+});
+const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+terrainMesh.rotation.x = -Math.PI / 2;
+terrainMesh.position.y = -10; // Sit below the bridge
+scene.add(terrainMesh);
+
+
+// --- PLAYER ---
+let laneIndex = 0; 
+let isDead = false;
+
+const playerBody = world.createRigidBody(
+    RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 5, 0).setAngularDamping(2.0)
+);
+world.createCollider(
+    RAPIER.ColliderDesc.ball(0.5).setFriction(0).setRestitution(0),
+    playerBody
+);
+
+const playerMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.5, 32, 32),
+    new THREE.MeshStandardMaterial({
+        color: 0xffffff, 
+        emissive: 0x00ffcc, 
+        emissiveIntensity: 0.8,
+        roughness: 0.1
+    })
+);
+playerMesh.castShadow = true;
+scene.add(playerMesh);
+
+// --- OBSTACLES ---
+const obstacles = [];
+let nextSpawnZ = -30;
+
+function createBlock(zPos, startLane, endLane, isTall) {
+    const lanesCovered = (endLane - startLane) + 1;
+    const width = (lanesCovered * LANE_WIDTH) - 0.2;
+    const centerX = (startLane + (lanesCovered - 1) / 2) * LANE_WIDTH;
+    
+    const height = isTall ? 7.0 : 1.2;
+    const yPos = isTall ? 3.5 : 0.6; 
+    const depth = 2.0;
+
+    const body = world.createRigidBody(
+        RAPIER.RigidBodyDesc.fixed().setTranslation(centerX, yPos, zPos)
+    );
+    world.createCollider(RAPIER.ColliderDesc.cuboid(width/2, height/2, depth/2), body);
+
+    const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(width, height, depth),
+        new THREE.MeshStandardMaterial({
+            color: 0x111111,
+            emissive: isTall ? 0xff0055 : 0xffaa00,
+            emissiveIntensity: 0.8,
+            metalness: 0.9,
+            roughness: 0.1
+        })
+    );
+    mesh.position.set(centerX, yPos, zPos);
+    mesh.castShadow = true;
+    
+    // Hitbox
+    const hitbox = {
+        minX: centerX - width/2, maxX: centerX + width/2,
+        minZ: zPos - depth/2, maxZ: zPos + depth/2,
+        maxY: height 
+    };
+
+    scene.add(mesh);
+    obstacles.push({ body, mesh, z: zPos, passed: false, hitbox });
+}
+
+function spawnRandomRow(zPos) {
+    let rowConfig = [0,0,0,0,0,0,0];
+    
+    // Random generation
+    for(let i=0; i<7; i++) {
+        if(Math.random() < 0.5) rowConfig[i] = Math.random() > 0.6 ? 2 : 1;
+    }
+
+    // Safety Guarantee
+    const safeLane = Math.floor(Math.random() * 7);
+    rowConfig[safeLane] = 0;
+    // Widen gap occasionally
+    if(Math.random()>0.5 && safeLane<6) rowConfig[safeLane+1]=0;
+    if(Math.random()>0.5 && safeLane>0) rowConfig[safeLane-1]=0;
+
+    // Grouping
+    let i = 0;
+    while(i < 7) {
+        if(rowConfig[i] !== 0) {
+            let type = rowConfig[i];
+            let start = i;
+            let end = i;
+            while(end + 1 < 7 && rowConfig[end+1] === type) {
+                end++;
+            }
+            createBlock(zPos, start - 3, end - 3, type === 2);
+            i = end + 1;
+        } else {
+            i++;
+        }
+    }
+}
+
+// --- INPUT ---
+window.addEventListener('keydown', (e) => {
+    if(isDead && e.code === 'Space') {
+        reset();
+        return;
+    }
+    if(isDead) return;
+
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') laneIndex--;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') laneIndex++;
+    if (e.code === 'Space') {
+        if(playerBody.translation().y < 1.0) {
+            playerBody.applyImpulse({x:0, y:JUMP_FORCE, z:0}, true);
+        }
+    }
+});
+
+function reset() {
+    isDead = false;
+    currentLoss = 1.0;
+    currentSpeed = INITIAL_SPEED;
+    laneIndex = 0;
+    
+    playerBody.setTranslation({x:0, y:5, z:0}, true);
+    playerBody.setLinvel({x:0, y:0, z:0}, true);
+    
+    obstacles.forEach(o => { world.removeRigidBody(o.body); scene.remove(o.mesh); });
+    obstacles.length = 0;
+    
+    nextSpawnZ = -30;
+    document.getElementById('gameOverScreen').style.display = 'none';
+}
+
+function die() {
+    isDead = true;
+    document.getElementById('gameOverScreen').style.display = 'flex';
+}
+
+// --- MAIN LOOP ---
+const clock = new THREE.Clock();
+
+function animate() {
+    requestAnimationFrame(animate);
+    const dt = clock.getDelta();
+
+    if(!isDead) {
+        world.step();
+        
+        const p = playerBody.translation();
+        const v = playerBody.linvel();
+
+        // 1. Movement
+        const targetX = laneIndex * LANE_WIDTH;
+        const vx = (targetX - p.x) * 10.0; 
+        playerBody.setLinvel({ x: vx, y: v.y, z: -currentSpeed }, true);
+
+        // 2. Camera
+        const camTarget = new THREE.Vector3(p.x, p.y + 7, p.z + 14);
+        camera.position.lerp(camTarget, 0.1);
+        camera.lookAt(p.x, p.y + 2, p.z - 25);
+
+        // 3. Scroll Environment
+        floorBody.setNextKinematicTranslation({x:0, y:-1, z: p.z});
+        
+        bridgeMesh.position.z = p.z;
+        gridHelper.position.z = p.z;
+        voidLight.position.z = p.z;
+        
+        // TERRAIN SCROLLING (Visual Loop)
+        terrainMesh.position.z = p.z - (p.z % 150); 
+        terrainMesh.position.x = 0;
+
+        // 4. Spawner
+        if (nextSpawnZ > p.z - 200) {
+            spawnRandomRow(nextSpawnZ);
+            const gap = Math.max(16, 45 - (currentSpeed * 0.5));
+            nextSpawnZ -= gap;
+        }
+
+        // 5. Collision
+        for(let i=obstacles.length-1; i>=0; i--) {
+            const o = obstacles[i];
+            
+            // Hitbox
+            const pMinX = p.x - 0.4; const pMaxX = p.x + 0.4;
+            const pMinZ = p.z - 0.4; const pMaxZ = p.z + 0.4;
+            
+            if (pMaxX > o.hitbox.minX && pMinX < o.hitbox.maxX &&
+                pMaxZ > o.hitbox.minZ && pMinZ < o.hitbox.maxZ) {
+                if (p.y < o.hitbox.maxY) die();
+            }
+
+            if(!o.passed && o.z > p.z + 2) {
+                o.passed = true;
+                currentLoss *= 0.999; 
+                if(currentLoss < 0.0001) currentLoss = 0;
+                currentSpeed *= 1.01;
+            }
+
+            if(o.z > p.z + 30) {
+                world.removeRigidBody(o.body);
+                scene.remove(o.mesh);
+                obstacles.splice(i,1);
+            }
+        }
+
+        if(p.y < -15) die();
+
+        // UI
+        document.getElementById('lossDisplay').textContent = currentLoss.toFixed(5);
+        document.getElementById('speedDisplay').textContent = (currentSpeed/10).toFixed(1);
+
+        playerMesh.position.copy(p);
+        playerMesh.rotation.x -= currentSpeed * dt * 0.3;
+        playerMesh.rotation.z = 0;
+    }
+
+    renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>
