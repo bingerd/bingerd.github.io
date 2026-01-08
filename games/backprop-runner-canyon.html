@@ -15,7 +15,6 @@
   
   #controls-hint { position: fixed; bottom: 40px; width: 100%; text-align: center; color: #666; font-size: 12px; letter-spacing: 8px; pointer-events: none; text-transform: uppercase; z-index: 15;}
   
-  /* CRT Scanline effect overlay */
   .scanlines { position: fixed; inset: 0; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06)); background-size: 100% 2px, 3px 100%; pointer-events: none; z-index: 5; }
 
   #loading { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; color: #00ffaa; letter-spacing: 2px; text-transform: uppercase; background: #000; padding: 20px; border: 1px solid #00ffaa; }
@@ -27,13 +26,8 @@
 </head>
 <body>
 
-<!-- <div id="controls-hint">← Strafe (A) &nbsp; • &nbsp; Jump (SPACE) &nbsp; • &nbsp; Strafe (D) →</div> -->
-
-
 <div class="scanlines"></div>
 <div id="loading">Synthesizing Environment...</div>
-
-
 
 <div class="hud">
     <div class="stat-box">
@@ -46,13 +40,12 @@
     </div>
 </div>
 
-<div id="controls-hint">← Strafe (A) &nbsp; • &nbsp; Jump (Space) &nbsp; • &nbsp; Strafe (D) →</div>
+<div id="controls-hint">← Strafe (A) / Swipe Left &nbsp; • &nbsp; Jump (Space) / Swipe Up &nbsp; • &nbsp; Strafe (D) / Swipe Right →</div>
 
 <div id="gameOverScreen" class="game-over">
     <h1>GRADIENT COLLAPSE</h1>
-    <p>[ SPACE to Reboot ]</p>
+    <p>[ SPACE / TAP to Reboot ]</p>
 </div>
-
 
 <canvas id="c"></canvas>
 
@@ -79,15 +72,14 @@ let currentLoss = 4.478;
 // --- THREE.JS ---
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050510);
-scene.fog = new THREE.FogExp2(0x050510, 0.015); // Clearer visibility
+scene.fog = new THREE.FogExp2(0x050510, 0.015);
 
 const camera = new THREE.PerspectiveCamera(90, innerWidth/innerHeight, 0.1, 400);
 const renderer = new THREE.WebGLRenderer({canvas: document.getElementById('c'), antialias: true});
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 
-// Lighting (Brighter)
-const ambLight = new THREE.AmbientLight(0xffffff, 0.6); // Increased ambient
+const ambLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambLight);
 
 const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -96,7 +88,6 @@ dirLight.castShadow = true;
 Object.assign(dirLight.shadow.camera, {top:50, bottom:-50, left:-50, right:50});
 scene.add(dirLight);
 
-// Under-glow light for the void
 const voidLight = new THREE.PointLight(0x0044ff, 2, 100);
 voidLight.position.set(0, -20, 0);
 scene.add(voidLight);
@@ -105,14 +96,12 @@ scene.add(voidLight);
 const world = new RAPIER.World({x:0, y:GRAVITY, z:0});
 
 // --- ROAD / BRIDGE ---
-// Physics Body (Kinematic)
 const floorBody = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0,-1,0));
 world.createCollider(RAPIER.ColliderDesc.cuboid(TOTAL_ROAD_WIDTH/2, 1, 150), floorBody);
 
-// Visual Bridge (Brighter)
 const bridgeGeo = new THREE.BoxGeometry(TOTAL_ROAD_WIDTH, 1, 400);
 const bridgeMat = new THREE.MeshStandardMaterial({
-    color: 0x151515, // Dark Grey
+    color: 0x151515,
     roughness: 0.2,
     metalness: 0.5,
     emissive: 0x111111
@@ -121,24 +110,19 @@ const bridgeMesh = new THREE.Mesh(bridgeGeo, bridgeMat);
 bridgeMesh.position.y = -0.5;
 scene.add(bridgeMesh);
 
-// Neon Grid Overlay (Visibility)
 const gridHelper = new THREE.GridHelper(TOTAL_ROAD_WIDTH, LANE_COUNT, 0x00ffcc, 0x004455);
-gridHelper.position.y = 0.05; // Slightly above road
-gridHelper.scale.z = 20; // Stretch
+gridHelper.position.y = 0.05;
+gridHelper.scale.z = 20;
 scene.add(gridHelper);
 
-
-// --- TERRAIN (PROCEDURAL CANYON) ---
+// --- TERRAIN ---
 const terrainGeo = new THREE.PlaneGeometry(500, 500, 80, 80);
 const pos = terrainGeo.attributes.position;
 for(let i=0; i<pos.count; i++){
     const x = pos.getX(i);
     const y = pos.getY(i);
-    // Create a "Canyon" shape: Low in middle, High on sides
     const distFromCenter = Math.abs(x) / 250;
-    const canyonFactor = Math.pow(distFromCenter, 2) * 50; 
-    
-    // Noise
+    const canyonFactor = Math.pow(distFromCenter, 2) * 50;
     const z = Math.sin(x*0.1) * 5 + Math.cos(y*0.1) * 5 + canyonFactor + (Math.random()*2);
     pos.setZ(i, z);
 }
@@ -146,16 +130,15 @@ terrainGeo.computeVertexNormals();
 
 const terrainMat = new THREE.MeshStandardMaterial({
     color: 0x000000,
-    emissive: 0x001133, // Deep blue glow
+    emissive: 0x001133,
     wireframe: true,
     transparent: true,
     opacity: 0.4
 });
 const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
 terrainMesh.rotation.x = -Math.PI / 2;
-terrainMesh.position.y = -10; // Sit below the bridge
+terrainMesh.position.y = -10;
 scene.add(terrainMesh);
-
 
 // --- PLAYER ---
 let laneIndex = 0; 
@@ -189,7 +172,6 @@ function createBlock(zPos, startLane, endLane, isTall) {
     const lanesCovered = (endLane - startLane) + 1;
     const width = (lanesCovered * LANE_WIDTH) - 0.2;
     const centerX = (startLane + (lanesCovered - 1) / 2) * LANE_WIDTH;
-    
     const height = isTall ? 7.0 : 1.2;
     const yPos = isTall ? 3.5 : 0.6; 
     const depth = 2.0;
@@ -211,8 +193,7 @@ function createBlock(zPos, startLane, endLane, isTall) {
     );
     mesh.position.set(centerX, yPos, zPos);
     mesh.castShadow = true;
-    
-    // Hitbox
+
     const hitbox = {
         minX: centerX - width/2, maxX: centerX + width/2,
         minZ: zPos - depth/2, maxZ: zPos + depth/2,
@@ -225,20 +206,15 @@ function createBlock(zPos, startLane, endLane, isTall) {
 
 function spawnRandomRow(zPos) {
     let rowConfig = [0,0,0,0,0,0,0];
-    
-    // Random generation
     for(let i=0; i<7; i++) {
         if(Math.random() < 0.5) rowConfig[i] = Math.random() > 0.6 ? 2 : 1;
     }
 
-    // Safety Guarantee
     const safeLane = Math.floor(Math.random() * 7);
     rowConfig[safeLane] = 0;
-    // Widen gap occasionally
     if(Math.random()>0.5 && safeLane<6) rowConfig[safeLane+1]=0;
     if(Math.random()>0.5 && safeLane>0) rowConfig[safeLane-1]=0;
 
-    // Grouping
     let i = 0;
     while(i < 7) {
         if(rowConfig[i] !== 0) {
@@ -256,12 +232,9 @@ function spawnRandomRow(zPos) {
     }
 }
 
-// --- INPUT ---
+// --- INPUT (KEYBOARD + TOUCH) ---
 window.addEventListener('keydown', (e) => {
-    if(isDead && e.code === 'Space') {
-        reset();
-        return;
-    }
+    if(isDead && e.code === 'Space') { reset(); return; }
     if(isDead) return;
 
     if (e.code === 'ArrowLeft' || e.code === 'KeyA') laneIndex--;
@@ -269,6 +242,37 @@ window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         if(playerBody.translation().y < 1.0) {
             playerBody.applyImpulse({x:0, y:JUMP_FORCE, z:0}, true);
+        }
+    }
+});
+
+let touchStartX = 0;
+let touchStartY = 0;
+
+window.addEventListener('touchstart', (e) => {
+    if(isDead) { reset(); return; }
+    if(e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+    }
+});
+
+window.addEventListener('touchend', (e) => {
+    if(isDead) return;
+    if(e.changedTouches.length === 1) {
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+
+        const dx = touchEndX - touchStartX;
+        const dy = touchEndY - touchStartY;
+
+        if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 30) {
+            if(dx < 0) laneIndex--;
+            else laneIndex++;
+        } else if(dy < -30) {
+            if(playerBody.translation().y < 1.0) {
+                playerBody.applyImpulse({x:0, y:JUMP_FORCE, z:0}, true);
+            }
         }
     }
 });
@@ -307,39 +311,29 @@ function animate() {
         const p = playerBody.translation();
         const v = playerBody.linvel();
 
-        // 1. Movement
         const targetX = laneIndex * LANE_WIDTH;
         const vx = (targetX - p.x) * 10.0; 
         playerBody.setLinvel({ x: vx, y: v.y, z: -currentSpeed }, true);
 
-        // 2. Camera
         const camTarget = new THREE.Vector3(p.x, p.y + 7, p.z + 14);
         camera.position.lerp(camTarget, 0.1);
         camera.lookAt(p.x, p.y + 2, p.z - 25);
 
-        // 3. Scroll Environment
         floorBody.setNextKinematicTranslation({x:0, y:-1, z: p.z});
-        
         bridgeMesh.position.z = p.z;
         gridHelper.position.z = p.z;
         voidLight.position.z = p.z;
-        
-        // TERRAIN SCROLLING (Visual Loop)
-        terrainMesh.position.z = p.z - (p.z % 150); 
+        terrainMesh.position.z = p.z - (p.z % 150);
         terrainMesh.position.x = 0;
 
-        // 4. Spawner
         if (nextSpawnZ > p.z - 200) {
             spawnRandomRow(nextSpawnZ);
             const gap = Math.max(16, 45 - (currentSpeed * 0.5));
             nextSpawnZ -= gap;
         }
 
-        // 5. Collision
         for(let i=obstacles.length-1; i>=0; i--) {
             const o = obstacles[i];
-            
-            // Hitbox
             const pMinX = p.x - 0.4; const pMaxX = p.x + 0.4;
             const pMinZ = p.z - 0.4; const pMaxZ = p.z + 0.4;
             
@@ -364,7 +358,6 @@ function animate() {
 
         if(p.y < -15) die();
 
-        // UI
         document.getElementById('lossDisplay').textContent = currentLoss.toFixed(5);
         document.getElementById('speedDisplay').textContent = (currentSpeed/10).toFixed(1);
 
