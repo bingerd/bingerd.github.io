@@ -74,10 +74,21 @@ p { line-height:1.7; opacity:0.85; }
 }
 .card.visible { opacity:1; transform:translateY(0); }
 .card:hover { transform:translateY(-6px); }
-
-/* CASE STUDY */
-.case-study {
-  margin-top:48px; padding:32px; border:1px dashed var(--accent); border-radius:16px; text-align:left; opacity:0.85;
+.card h3 { margin: 0 0 12px 0; font-size: 1.2rem; }
+.card p { margin: 0 0 16px 0; font-size: 0.95rem; }
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+}
+.card-tags span {
+  padding: 4px 10px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  opacity: 0.7;
 }
 
 /* BLOG CARDS */
@@ -95,9 +106,211 @@ p { line-height:1.7; opacity:0.85; }
 
 footer { text-align:center; padding:48px 20px; opacity:0.6; position:relative; z-index:1; }
 
+/* HERO ENHANCEMENTS */
+.hero-label {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  opacity: 0.7;
+  margin-bottom: 1rem;
+}
+.hero-title {
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  font-weight: 700;
+  line-height: 1.15;
+  margin-bottom: 1.2rem;
+}
+.hero-sub {
+  font-size: 1.15rem;
+  opacity: 0.8;
+  line-height: 1.6;
+  max-width: 540px;
+  margin: 0 auto;
+}
+.hero-stats {
+  display: flex;
+  justify-content: center;
+  gap: 48px;
+  margin-top: 48px;
+  flex-wrap: wrap;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.stat-num {
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.stat-label {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin-top: 4px;
+}
+
+/* ABOUT ENHANCEMENTS */
+.about-content {
+  text-align: left;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.about-lead {
+  font-size: 1.3rem;
+  font-weight: 500;
+  margin-bottom: 1.5rem;
+  opacity: 0.95;
+}
+.about-focus {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+  margin-top: 40px;
+}
+.focus-item {
+  padding: 20px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.focus-item h3 {
+  font-size: 1rem;
+  margin: 0 0 8px 0;
+  color: var(--accent);
+}
+.focus-item p {
+  font-size: 0.9rem;
+  margin: 0;
+  opacity: 0.75;
+}
+
+/* SKILLS SECTION */
+#skills { text-align: left; }
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 32px;
+  margin-top: 40px;
+}
+.skill-category h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+  margin-bottom: 12px;
+}
+.skill-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.skill-tag {
+  padding: 6px 14px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+/* CASE STUDY ENHANCEMENTS */
+.case-studies {
+  display: grid;
+  gap: 32px;
+  margin-top: 48px;
+}
+.case-study {
+  padding: 32px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 16px;
+  text-align: left;
+  background: rgba(255,255,255,0.03);
+}
+.case-study h3 {
+  font-size: 1.3rem;
+  margin: 0 0 20px 0;
+  color: var(--accent);
+}
+.case-study-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+}
+.case-study-item h4 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0.6;
+  margin: 0 0 8px 0;
+}
+.case-study-item p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.case-study-metrics {
+  display: flex;
+  gap: 32px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  flex-wrap: wrap;
+}
+.metric {
+  text-align: center;
+}
+.metric-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.metric-label {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+/* FUN SECTION */
+.fun-section {
+  border-top: 1px dashed rgba(255,255,255,0.2);
+  margin-top: 60px;
+  padding-top: 60px;
+}
+.fun-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+.fun-header p {
+  opacity: 0.6;
+  font-size: 0.95rem;
+}
+
+/* SECTION INTRO */
+.section-intro {
+  opacity: 0.7;
+  font-size: 1.05rem;
+  margin-bottom: 24px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* DETAILS STYLING */
+details summary {
+  list-style: none;
+}
+details summary::-webkit-details-marker {
+  display: none;
+}
+details[open] summary {
+  margin-bottom: 24px;
+}
+
 @media(max-width:640px){
   nav{padding:10px 14px;}
   section{padding-top:120px;}
+  .hero-stats { gap: 24px; }
+  .stat-num { font-size: 1.8rem; }
+  .case-study-metrics { gap: 20px; }
 }
 </style>
 </head>
@@ -108,62 +321,215 @@ footer { text-align:center; padding:48px 20px; opacity:0.6; position:relative; z
 <nav>
   <div class="logo">BING TAN</div>
   <ul>
-    <li onclick="go('home')" aria-label="Home">Home</li>
     <li onclick="go('about')" aria-label="About">About</li>
+    <li onclick="go('skills')" aria-label="Skills">Skills</li>
+    <li onclick="go('experience')" aria-label="Experience">Experience</li>
     <li onclick="go('projects')" aria-label="Projects">Projects</li>
     <li onclick="go('blog')" aria-label="Writing">Writing</li>
     <li onclick="go('contact')" aria-label="Contact">Contact</li>
-    <li onclick="window.location.href='games/backprop-runner-canyon.html'" aria-label="Gradient Runner">Game</li>
-    
     <li><button class="toggle" onclick="toggleTheme()">Theme</button></li>
-    <li><button class="toggle" onclick="togglePerf()">Performance Mode</button></li>
   </ul>
 </nav>
 
 <section id="home">
   <div class="container">
-    <h1>Machine Learning Engineer</h1>
-    <h2>End-to-end ML systems · MLOps · Applied Research</h2>
-    <a class="cta" onclick="go('projects')">Explore My Work</a>
+    <p class="hero-label">Machine Learning Engineer</p>
+    <h1 class="hero-title">I build ML systems<br>that work in production</h1>
+    <p class="hero-sub">From training pipelines to low-latency inference at scale.<br>Turning research into reliable, high-performance products.</p>
+    <div class="hero-stats">
+      <div class="stat"><span class="stat-num">2+</span><span class="stat-label">Years in ML</span></div>
+      <div class="stat"><span class="stat-num">50M+</span><span class="stat-label">Daily Predictions</span></div>
+      <div class="stat"><span class="stat-num">42%</span><span class="stat-label">Latency Reduction</span></div>
+    </div>
+    <a class="cta" onclick="go('about')">Learn More</a>
   </div>
 </section>
 
 <section id="about">
   <div class="container" role="main">
     <h1>About</h1>
-    <p>
-      I design, build, and operate production machine learning systems.
-      My background spans data engineering, model training, inference platforms,
-      and reliability at scale.
-    </p>
+    <div class="about-content">
+      <p class="about-lead">
+        I'm Bing — a Machine Learning Engineer specializing in taking models from research to production.
+      </p>
+      <p>
+        My work sits at the intersection of ML engineering, infrastructure, and systems design.
+        I've built and operated inference platforms handling millions of requests, designed training
+        pipelines for large-scale models, and implemented MLOps practices that keep systems reliable.
+      </p>
+      <p>
+        I care about the details that matter: reducing p99 latency, building robust monitoring,
+        designing APIs that scale, and writing code that other engineers can maintain.
+      </p>
+      <div class="about-focus">
+        <div class="focus-item">
+          <h3>Inference & Serving</h3>
+          <p>Low-latency GPU inference, dynamic batching, model optimization, autoscaling</p>
+        </div>
+        <div class="focus-item">
+          <h3>Training & Pipelines</h3>
+          <p>Distributed training, feature engineering, data pipelines, experiment tracking</p>
+        </div>
+        <div class="focus-item">
+          <h3>MLOps & Reliability</h3>
+          <p>CI/CD for ML, monitoring, A/B testing, gradual rollouts, incident response</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="skills">
+  <div class="container">
+    <h1>Tech Stack</h1>
+    <div class="skills-grid">
+      <div class="skill-category">
+        <h3>ML Frameworks</h3>
+        <div class="skill-tags">
+          <span class="skill-tag">PyTorch</span>
+          <span class="skill-tag">TensorFlow</span>
+          <span class="skill-tag">HuggingFace</span>
+          <span class="skill-tag">scikit-learn</span>
+        </div>
+      </div>
+      <div class="skill-category">
+        <h3>Infrastructure</h3>
+        <div class="skill-tags">
+          <span class="skill-tag">Kubernetes</span>
+          <span class="skill-tag">Docker</span>
+          <span class="skill-tag">AWS</span>
+          <span class="skill-tag">GCP</span>
+          <span class="skill-tag">Databricks</span>
+        </div>
+      </div>
+      <div class="skill-category">
+        <h3>MLOps & Data</h3>
+        <div class="skill-tags">
+          <span class="skill-tag">MLflow</span>
+          <span class="skill-tag">Airflow</span>
+          <span class="skill-tag">Spark</span>
+          <span class="skill-tag">dbt</span>
+        </div>
+      </div>
+      <div class="skill-category">
+        <h3>Languages</h3>
+        <div class="skill-tags">
+          <span class="skill-tag">Python</span>
+          <span class="skill-tag">Rust</span>
+          <span class="skill-tag">C++</span>
+          <span class="skill-tag">Kotlin</span>
+          <span class="skill-tag">SQL</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="experience">
+  <div class="container">
+    <h1>Case Studies</h1>
+    <div class="case-studies">
+      <div class="case-study">
+        <h3>Large-Scale Inference Platform</h3>
+        <div class="case-study-grid">
+          <div class="case-study-item">
+            <h4>Challenge</h4>
+            <p>High-latency CPU inference under bursty load with unpredictable traffic patterns and cold start issues.</p>
+          </div>
+          <div class="case-study-item">
+            <h4>Solution</h4>
+            <p>Implemented dynamic batching, model optimization, and predictive autoscaling based on traffic signals.</p>
+          </div>
+          <div class="case-study-item">
+            <h4>Tech Stack</h4>
+            <p>PyTorch, ONNX Runtime, Kubernetes, Prometheus, custom batching service.</p>
+          </div>
+        </div>
+        <div class="case-study-metrics">
+          <div class="metric"><div class="metric-value">42%</div><div class="metric-label">p99 Latency Reduction</div></div>
+          <div class="metric"><div class="metric-value">3.1×</div><div class="metric-label">Throughput Increase</div></div>
+          <div class="metric"><div class="metric-value">$100k</div><div class="metric-label">Annual Cost Savings</div></div>
+        </div>
+      </div>
+
+      <div class="case-study">
+        <h3>Real-Time Feature Platform</h3>
+        <div class="case-study-grid">
+          <div class="case-study-item">
+            <h4>Challenge</h4>
+            <p>Feature computation was a bottleneck, with inconsistent values between training and serving causing model drift.</p>
+          </div>
+          <div class="case-study-item">
+            <h4>Solution</h4>
+            <p>Built unified feature store with streaming ingestion, point-in-time correctness, and sub-10ms serving latency.</p>
+          </div>
+          <div class="case-study-item">
+            <h4>Tech Stack</h4>
+            <p>Apache Kafka, Redis, Spark Streaming, Feast, Python, Go.</p>
+          </div>
+        </div>
+        <div class="case-study-metrics">
+          <div class="metric"><div class="metric-value">&lt;10ms</div><div class="metric-label">Feature Serving Latency</div></div>
+          <div class="metric"><div class="metric-value">15%</div><div class="metric-label">Model Accuracy Improvement</div></div>
+          <div class="metric"><div class="metric-value">100+</div><div class="metric-label">Features in Production</div></div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
 <section id="projects">
   <div class="container">
-    <h1>Selected Projects</h1>
-    <div class="projects" id="projectGrid"></div>
-
-    <div class="case-study">
-      <h3>Case Study: Large-Scale Inference Platform</h3>
-      <p><strong>Problem:</strong> High-latency GPU inference under bursty load.</p>
-      <p><strong>Solution:</strong> Dynamic batching, KV caching, autoscaling.</p>
-      <p><strong>Impact:</strong> ↓ 42% p99 latency, ↑ 3.1× throughput.</p>
+    <h1>Featured Projects</h1>
+    <div class="projects">
+      <div class="card visible">
+        <h3>LLM Serving Toolkit</h3>
+        <p>High-performance inference server with continuous batching, KV cache management, and OpenAI-compatible API.</p>
+        <div class="card-tags"><span>PyTorch</span><span>Rust</span><span>CUDA</span></div>
+      </div>
+      <div class="card visible">
+        <h3>ML Pipeline Framework</h3>
+        <p>Declarative ML pipeline orchestration with automatic versioning, caching, and distributed execution.</p>
+        <div class="card-tags"><span>Python</span><span>Ray</span><span>K8s</span></div>
+      </div>
+      <div class="card visible">
+        <h3>Feature Store</h3>
+        <p>Real-time feature serving with point-in-time correctness and streaming ingestion for ML models.</p>
+        <div class="card-tags"><span>Go</span><span>Redis</span><span>Kafka</span></div>
+      </div>
+      <div class="card visible">
+        <h3>Model Monitor</h3>
+        <p>Drift detection, performance monitoring, and alerting system for production ML models.</p>
+        <div class="card-tags"><span>Python</span><span>Prometheus</span><span>Grafana</span></div>
+      </div>
     </div>
+    <p style="margin-top: 32px; opacity: 0.7;"><a href="https://github.com/bingerd" style="color: var(--accent);">View all projects on GitHub →</a></p>
   </div>
 </section>
 
 <section id="blog">
   <div class="container">
     <h1>Writing</h1>
+    <p class="section-intro">Technical deep-dives on ML systems, infrastructure, and lessons from production.</p>
     <div class="blog-grid" id="blogGrid"></div>
   </div>
 </section>
 
-<section id="Useful Endpoints">
+<section id="playground">
   <div class="container">
-    <h1>ML Playground Models</h1>
-    <p>Try these state-of-the-art ML endpoints for free!</p>
+    <div class="fun-section">
+      <div class="fun-header">
+        <h1>Fun Stuff</h1>
+        <p>Because ML engineers need to have fun too. Interactive experiments and silly predictions.</p>
+      </div>
+
+      <div style="display: flex; gap: 16px; justify-content: center; margin-bottom: 40px; flex-wrap: wrap;">
+        <a href="games/backprop-runner-canyon.html" class="cta" style="font-size: 0.9rem; padding: 12px 24px;">Play Backprop Runner</a>
+        <a href="animations/neural-field-particles.html" class="cta" style="font-size: 0.9rem; padding: 12px 24px;">Neural Field Particles</a>
+      </div>
+
+      <details style="text-align: left;">
+        <summary style="cursor: pointer; font-size: 1.1rem; font-weight: 600; padding: 16px 0; border-top: 1px solid rgba(255,255,255,0.1);">ML Playground Endpoints <span style="opacity: 0.6; font-weight: normal;">(click to expand)</span></summary>
 
     <div style="display:flex; flex-direction:column; gap:32px; margin-top:24px;">
 
@@ -276,6 +642,8 @@ footer { text-align:center; padding:48px 20px; opacity:0.6; position:relative; z
         <pre id="chaos-output" style="margin-top:8px;"></pre>
       </div>
 
+    </div>
+      </details>
     </div>
   </div>
 </section>
@@ -489,7 +857,10 @@ function predictChaos(){
 </section>
 
 
-<footer>© 2026 Bing Tan</footer>
+<footer>
+  <p>© 2026 Bing Tan</p>
+  <p style="margin-top: 12px; font-size: 0.75rem;"><span onclick="togglePerf()" style="cursor: pointer; opacity: 0.4; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.4'">Toggle chaos mode</span></p>
+</footer>
 
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
@@ -582,28 +953,6 @@ window.toggleTheme = ()=>{
 
 <script>
 function go(id){ document.getElementById(id).scrollIntoView({behavior:'smooth'}); }
-
-const observer = new IntersectionObserver(entries=>{
-  entries.forEach(e=>{
-    if(e.isIntersecting){
-      e.target.classList.add('visible');
-    }
-  });
-},{ threshold:0.2 });
-
-fetch('https://api.github.com/users/bingerd/repos')
-  .then(r=>r.json())
-  .then(repos=>{
-    const grid=document.getElementById('projectGrid');
-    repos.slice(0,6).forEach((repo,i)=>{
-      const card=document.createElement('div');
-      card.className='card';
-      card.style.transitionDelay = `${i*100}ms`;
-      card.innerHTML=`<h3>${repo.name}</h3><p>${repo.description||'No description provided.'}</p>`;
-      grid.appendChild(card);
-      observer.observe(card);
-    });
-  });
 
 // BLOG
 const blogPosts=[
