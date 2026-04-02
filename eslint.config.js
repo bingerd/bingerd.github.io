@@ -48,7 +48,10 @@ export default [
         clearInterval: 'readonly',
         clearTimeout: 'readonly',
         requestAnimationFrame: 'readonly',
-        IntersectionObserver: 'readonly'
+        IntersectionObserver: 'readonly',
+        localStorage: 'readonly',
+        JSON: 'readonly',
+        devicePixelRatio: 'readonly'
       }
     },
     rules: {

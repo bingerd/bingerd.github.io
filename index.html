@@ -71,6 +71,11 @@
         <dd>Open to interesting problems</dd>
       </dl>
     </div>
+    <div class="about-personal">
+      <p>Most ML engineers come from computer science. I came from business analytics. My MSc at VU Amsterdam had me building deep learning models in the Computational Intelligence track, but my undergrad taught me something most engineers skip: why the model matters to the business. I think that's why I obsess over production — a model that doesn't ship is just a notebook.</p>
+      <p>I believe the best model is the one that's actually in production. Monitoring matters more than accuracy. A model you can't observe is a liability. And I'd rather ship something simple on Monday than something perfect never.</p>
+      <p>I get unreasonably excited about shaving milliseconds off inference latency, building systems that fail gracefully instead of silently, and the moment when a training loss curve finally bends.</p>
+    </div>
     <div class="about-content">
       <h2 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.1em; opacity:0.6; margin-top:48px; margin-bottom:24px;">Primary Capabilities</h2>
       <div class="about-focus">
@@ -87,6 +92,19 @@
           <p>CI/CD for ML, monitoring, A/B testing, gradual rollouts, incident response</p>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="beliefs" data-loading-text="Loading priors...">
+  <div class="container">
+    <h1>How I Think</h1>
+    <div class="beliefs">
+      <blockquote>The best model is the one that's actually in production.</blockquote>
+      <blockquote>Monitoring > accuracy. A model you can't observe is a liability.</blockquote>
+      <blockquote>Ship simple on Monday. Ship perfect never.</blockquote>
+      <blockquote>If your feature store has drift, your model has drift. You just don't know it yet.</blockquote>
+      <blockquote>The gap between research and production isn't technical — it's operational.</blockquote>
     </div>
   </div>
 </section>
@@ -143,20 +161,10 @@
     <div class="case-studies">
       <div class="case-study">
         <h3>How We Cut Inference Latency by 42% (Without Losing Sleep)</h3>
-        <p class="case-study-lead">The inference platform was fine. "Fine" was the problem.</p>
-        <div class="case-study-grid">
-          <div class="case-study-item">
-            <h4>Challenge</h4>
-            <p>High-latency CPU inference under bursty load with unpredictable traffic patterns and cold start issues.</p>
-          </div>
-          <div class="case-study-item">
-            <h4>Solution</h4>
-            <p>Implemented dynamic batching, model optimization, and predictive autoscaling based on traffic signals.</p>
-          </div>
-          <div class="case-study-item">
-            <h4>Tech Stack</h4>
-            <p>PyTorch, ONNX Runtime, Kubernetes, Prometheus, custom batching service.</p>
-          </div>
+        <div class="case-study-narrative">
+          <p>Our inference platform was handling 50M predictions a day on CPU. Latency was "acceptable" — until a traffic spike turned p99 from 200ms to 2 seconds. The on-call page woke me up at 2am.</p>
+          <p>By morning I had a prototype: dynamic batching with ONNX Runtime on GPU, predictive autoscaling triggered by Kafka traffic signals, and a fallback to cached predictions when the model was cold. Three weeks later we were in production.</p>
+          <p>p99 dropped 42%. Throughput tripled. And the annual cloud bill got $100k lighter.</p>
         </div>
         <div class="case-study-metrics">
           <div class="metric"><div class="metric-value">42%</div><div class="metric-label">p99 Latency Reduction</div></div>
@@ -439,6 +447,7 @@
     <span>&copy; 2026</span>
   </div>
   <p style="margin-top: 12px;"><button class="chaos-toggle" onclick="togglePerf()">Toggle chaos mode</button></p>
+  <p style="margin-top: 8px;"><span class="egg-hint">This site contains 7 easter eggs. Type /help if you're curious. <span class="egg-counter" id="eggCounter"></span></span></p>
 </footer>
 
 <script src="js/predictions.js"></script>

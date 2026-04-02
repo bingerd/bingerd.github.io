@@ -72,7 +72,10 @@ button.toggle:focus-visible {
 }
 
 /* SECTIONS */
-section { min-height:100vh; padding:140px 24px 80px; display:flex; align-items:center; justify-content:center; text-align:center; position:relative; z-index:1; }
+section { min-height:100vh; padding:140px 24px 80px; display:flex; align-items:center; justify-content:center; text-align:center; position:relative; z-index:1; background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); }
+#home { background: rgba(0,0,0,0.3); backdrop-filter: none; }
+[data-theme="light"] section { background: rgba(246,246,246,0.82); }
+[data-theme="light"] #home { background: rgba(246,246,246,0.5); }
 .container { max-width:960px; }
 h1 { font-size:clamp(2.6rem,5vw,4.4rem); margin-bottom:0.6rem; }
 h2 { font-weight:400; opacity:0.75; margin-bottom:2.2rem; }
@@ -490,6 +493,51 @@ details summary .hint {
   border-radius: 4px;
 }
 
+/* ABOUT PERSONAL */
+.about-personal {
+  max-width: 640px;
+  margin: 32px auto 0;
+  text-align: left;
+}
+.about-personal p {
+  font-size: 1.05rem;
+  line-height: 1.8;
+  margin-bottom: 1.2rem;
+}
+.about-personal p:first-child {
+  font-size: 1.15rem;
+}
+
+/* BELIEFS */
+.beliefs {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  text-align: left;
+}
+.beliefs blockquote {
+  margin: 0;
+  padding: 16px 0 16px 24px;
+  border-left: 3px solid var(--accent);
+  font-size: 1.15rem;
+  font-style: italic;
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
+/* CASE STUDY NARRATIVE */
+.case-study-narrative {
+  text-align: left;
+  margin-bottom: 24px;
+}
+.case-study-narrative p {
+  font-size: 1.0rem;
+  line-height: 1.8;
+  margin-bottom: 1rem;
+}
+
 /* CASE STUDY LEAD */
 .case-study-lead {
   font-style: italic;
@@ -697,6 +745,31 @@ details summary .hint {
 }
 .konami-toast.visible {
   transform: translateX(-50%) translateY(0);
+}
+
+/* MATRIX CANVAS */
+.matrix-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  pointer-events: none;
+}
+
+/* EGG HINT */
+.egg-hint {
+  font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 0.7rem;
+  opacity: 0.25;
+  cursor: default;
+  transition: opacity 0.3s;
+}
+.egg-hint:hover {
+  opacity: 0.6;
+}
+.egg-counter {
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.3s;
 }
 
 /* CHAOS TOGGLE */

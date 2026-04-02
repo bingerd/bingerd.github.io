@@ -1,9 +1,9 @@
 /* Blog post rendering */
 var blogPosts = [
-  { title: "Designing ML systems that don't fail in production", description: "Senior-level strategies for robust, production-ready machine learning systems.", href: "docs/blog/2026/ml-production.html", date: "2026-01-01", category: "ML Engineering", readingTime: "7 min" },
-  { title: "MLOps lessons learned shipping real models", description: "Key operational insights, monitoring strategies, and deployment lessons from production ML.", href: "docs/blog/2026/mlops-lessons.html", date: "2026-01-02", category: "MLOps", readingTime: "8 min" },
-  { title: "Transformers, KV Caching, and Scaling LLMs", description: "Deep dive into transformer internals, KV caching, and production optimizations.", href: "docs/blog/2026/transformers-kv-caching.html", date: "2026-01-03", category: "LLM Engineering", readingTime: "6 min" },
-  { title: "Serving PyTorch Models with Rust", description: "High-performance, memory-safe ML serving using Rust and TorchScript.", href: "docs/blog/2026/rust-torch-serving.html", date: "2026-01-04", category: "ML Production", readingTime: "5 min" }
+  { title: "Why Your ML System Will Fail in Production (And How to Prevent It)", description: "Data pipelines break. Models drift silently. Deployment patterns that actually survive the real world.", href: "docs/blog/2026/ml-production.html", date: "2026-01-01", category: "ML Engineering", readingTime: "7 min" },
+  { title: "The Model That Passed Every Test and Failed in Production", description: "Hard-won lessons from late-night pages, silent model failures, and pipelines that looked fine until they weren't.", href: "docs/blog/2026/mlops-lessons.html", date: "2026-01-02", category: "MLOps", readingTime: "8 min" },
+  { title: "The Hidden Cost of Transformer Inference (And How KV Caching Fixes It)", description: "Why naive decoding is expensive, how KV caching turns O(n\u00B2) into O(n), and what it takes to serve LLMs at scale.", href: "docs/blog/2026/transformers-kv-caching.html", date: "2026-01-03", category: "LLM Engineering", readingTime: "6 min" },
+  { title: "Why I Serve PyTorch Models with Rust Instead of Python", description: "Sub-millisecond latency, zero GC pauses, and the surprising ergonomics of tch-rs and Axum.", href: "docs/blog/2026/rust-torch-serving.html", date: "2026-01-04", category: "ML Production", readingTime: "5 min" }
 ];
 
 var gridB = document.getElementById('blogGrid');
