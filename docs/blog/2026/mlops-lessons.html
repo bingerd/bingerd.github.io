@@ -2,148 +2,92 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Designing ML Systems That Don’t Fail in Production — Bing Tan</title>
+  <title>MLOps Lessons Learned Shipping Real Models — Bing Tan</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Senior-level insights into designing robust, production-ready machine learning systems." />
-
-  <style>
-    :root {
-      --bg: #000;
-      --fg: #fff;
-      --glass: rgba(0,0,0,0.45);
-      --accent: #d9a4ff;
-    }
-    [data-theme="light"] {
-      --bg: #f6f6f6;
-      --fg: #0b0b0b;
-      --glass: rgba(255,255,255,0.7);
-      --accent: #7a3cff;
-    }
-
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
-      color: var(--fg);
-      line-height: 1.7;
-      overflow-x: hidden;
-    }
-
-    nav {
-      position: fixed;
-      top: 0;
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      padding: 14px 24px;
-      backdrop-filter: blur(12px);
-      background: var(--glass);
-      z-index: 10;
-    }
-
-    nav .logo { font-weight: 700; letter-spacing: 0.12em; }
-    nav ul { display: flex; gap: 16px; list-style: none; margin: 0; padding: 0; align-items: center; }
-    nav li { cursor: pointer; opacity: 0.8; }
-    nav li:hover { opacity: 1; }
-    nav a { color: inherit; text-decoration: none; }
-
-    main {
-      max-width: 860px;
-      margin: 140px auto 80px;
-      padding: 0 24px;
-    }
-
-    h1 { font-size: clamp(2.4rem, 5vw, 3.8rem); margin-bottom: 0.8rem; }
-    h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); margin-top: 2.4rem; color: var(--accent); }
-    p { margin-bottom: 1.5rem; }
-    code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 6px; }
-    pre { background: rgba(255,255,255,0.08); padding: 16px; border-radius: 12px; overflow-x: auto; }
-    blockquote { border-left: 4px solid var(--accent); padding-left: 12px; opacity: 0.8; margin: 1.5rem 0; }
-
-    footer { text-align: center; padding: 48px 24px; opacity: 0.6; }
-
-    button.toggle {
-      background: none; border: 1px solid currentColor; padding: 6px 12px; border-radius: 999px; cursor: pointer;
-    }
-  </style>
+  <meta name="description" content="Key operational insights, monitoring strategies, and deployment lessons from shipping ML models in production." />
+  <link rel="stylesheet" href="../../../css/blog.css" />
 </head>
 <body data-theme="dark">
 
-<nav>
+<nav aria-label="Main navigation">
   <div class="logo">BING TAN</div>
   <ul>
-    <li><a href="../../index.html">Home</a></li>
+    <li><a href="../../../index.html">Home</a></li>
     <li><a href="../../../index.html#blog">Writing</a></li>
-    <li><button class="toggle" onclick="toggleTheme()">Theme</button></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
   </ul>
 </nav>
 
 <main>
-  <h1>Designing ML Systems That Don’t Fail in Production</h1>
-  <p>Building machine learning systems is challenging, but designing them to survive the real-world scale, edge cases, and operational complexity is an entirely different level. This article covers advanced strategies for robust ML production systems.</p>
+  <h1>MLOps Lessons Learned Shipping Real Models</h1>
+  <p>After years of shipping ML models to production, certain patterns keep emerging. These aren't textbook lessons — they're hard-won insights from late-night pages, silent model failures, and pipelines that looked fine until they weren't.</p>
 
-  <h2>1. Data Engineering: The Foundation</h2>
-  <p>Reliable ML starts with reliable data. Ensure your pipelines are:</p>
+  <h2>1. CI/CD for ML Is Not Software CI/CD</h2>
+  <p>Traditional CI/CD tests code correctness. ML CI/CD must also verify:</p>
   <ul>
-    <li><strong>Idempotent:</strong> Running pipelines multiple times should produce consistent outputs.</li>
-    <li><strong>Versioned:</strong> Track dataset versions for reproducibility.</li>
-    <li><strong>Validated:</strong> Schema checks, null handling, anomaly detection.</li>
+    <li><strong>Data quality:</strong> Schema validation, distribution checks, and freshness assertions before training starts.</li>
+    <li><strong>Model quality gates:</strong> Automated evaluation against a held-out set with minimum metric thresholds.</li>
+    <li><strong>Reproducibility:</strong> Pinned dependencies, deterministic seeds, and versioned training data.</li>
   </ul>
+  <p>We learned this the hard way when a model passed all unit tests but shipped with a training set that had drifted 40% from the validation distribution.</p>
 
-  <h2>2. Model Deployment Patterns</h2>
-  <p>Some advanced deployment approaches include:</p>
-  <ul>
-    <li><strong>Blue-Green Deployments:</strong> Deploy new models alongside old ones and gradually switch traffic.</li>
-    <li><strong>Shadow Mode:</strong> Run a new model on live data without affecting production predictions.</li>
-    <li><strong>Canary Releases:</strong> Expose a small percentage of traffic to a new model before full rollout.</li>
-  </ul>
-
-  <pre><code>// Example: Shadow Mode prediction in Python
-predictions = new_model.predict(X_live)
-log(predictions)  # store for monitoring, not returned to users
+  <pre><code># Example: quality gate in CI pipeline
+def model_quality_gate(model, eval_data, min_auc=0.85):
+    auc = evaluate(model, eval_data)
+    assert auc >= min_auc, f"AUC {auc:.3f} below threshold {min_auc}"
+    log_metric("model_auc", auc)
 </code></pre>
 
-  <h2>3. Monitoring and Observability</h2>
-  <p>Key metrics to monitor:</p>
+  <h2>2. Model Registries Are Non-Negotiable</h2>
+  <p>Every model artifact needs a single source of truth. A model registry should track:</p>
   <ul>
-    <li>Prediction drift vs training distribution</li>
-    <li>Data integrity and schema changes</li>
-    <li>Latency and throughput for inference</li>
-    <li>Resource usage (GPU/CPU/Memory)</li>
+    <li>Model version, training date, and data snapshot used</li>
+    <li>Evaluation metrics at training time</li>
+    <li>Deployment status (staging, canary, production, retired)</li>
+    <li>Lineage: which pipeline, which commit, which experiment</li>
   </ul>
 
   <blockquote>
-    “Monitoring is not optional. A model that works in the lab can silently fail in production.” — ML Engineering Best Practices
+    "If you can't answer 'what model is running in production right now and why?' in under 30 seconds, your MLOps isn't ready."
   </blockquote>
 
-  <h2>4. Reliability at Scale</h2>
-  <p>Production ML requires:</p>
+  <h2>3. Monitoring Beyond Accuracy</h2>
+  <p>Accuracy metrics only tell you the model worked on yesterday's data. In production, you need:</p>
   <ul>
-    <li>Autoscaling inference services</li>
-    <li>Retry & queue mechanisms for upstream data failures</li>
-    <li>Graceful degradation strategies when models fail</li>
+    <li><strong>Input drift detection:</strong> Statistical tests (KS, PSI) on feature distributions at inference time.</li>
+    <li><strong>Prediction distribution monitoring:</strong> If your model suddenly predicts 95% one class, something broke.</li>
+    <li><strong>Latency percentiles:</strong> p50 is misleading — track p95 and p99 for real user experience.</li>
+    <li><strong>Data pipeline freshness:</strong> A model serving stale features is often worse than no model at all.</li>
   </ul>
 
-  <h2>5. Continuous Training and Retraining</h2>
-  <p>Automate retraining pipelines but with caution:</p>
+  <h2>4. Incident Response for ML Systems</h2>
+  <p>ML incidents are different from software incidents. The failure mode is often <em>silent degradation</em> rather than a crash:</p>
   <ul>
-    <li>Track model performance and drift before retraining.</li>
-    <li>Use versioned artifacts to rollback if needed.</li>
-    <li>Schedule retraining based on data volume or drift thresholds, not arbitrary intervals.</li>
+    <li><strong>Runbook for model rollback:</strong> Have a one-command rollback to the last known-good model version.</li>
+    <li><strong>Feature kill switches:</strong> Disable individual features without redeploying the model.</li>
+    <li><strong>Fallback strategies:</strong> When the model is down, serve a rules-based heuristic or cached predictions.</li>
+    <li><strong>Blameless post-mortems:</strong> ML failures often span data, training, and serving — assign owners to each layer.</li>
+  </ul>
+
+  <h2>5. Team Workflows That Scale</h2>
+  <p>As the team grows, ML workflows need structure:</p>
+  <ul>
+    <li><strong>Experiment tracking:</strong> Every training run logged with hyperparameters, metrics, and artifacts. No exceptions.</li>
+    <li><strong>Feature ownership:</strong> Each feature in the feature store has a clear owner and SLA.</li>
+    <li><strong>Model review process:</strong> Just like code review — a second pair of eyes on evaluation results, data splits, and deployment config before any production push.</li>
   </ul>
 
   <h2>Conclusion</h2>
-  <p>Robust ML systems require operational rigor, observability, and engineering discipline. Combining good data pipelines, safe deployment patterns, and continuous monitoring dramatically reduces downtime and model failure in production.</p>
+  <p>MLOps maturity isn't about tooling — it's about operational discipline. The teams that ship reliably are the ones that treat models like services: versioned, monitored, tested, and always one command away from a safe rollback.</p>
 </main>
 
 <footer>© 2026 Bing Tan</footer>
 
 <script>
-  window.toggleTheme = () => {
-    const dark = document.body.dataset.theme === 'dark';
+  window.toggleTheme = function() {
+    var dark = document.body.dataset.theme === 'dark';
     document.body.dataset.theme = dark ? 'light' : 'dark';
   };
 </script>
-
 </body>
 </html>

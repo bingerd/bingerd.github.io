@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Backprop Runner: Final Manifold</title>
@@ -47,11 +47,23 @@
     <p>[ SPACE / TAP to Reboot ]</p>
 </div>
 
-<canvas id="c"></canvas>
+<canvas id="c" role="application" aria-label="Backprop Runner game — use arrow keys or swipe to navigate"></canvas>
 
 <script type="module">
-import RAPIER from 'https://cdn.skypack.dev/@dimforge/rapier3d-compat';
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js';
+try {
+  var RAPIER = (await import('https://cdn.skypack.dev/@dimforge/rapier3d-compat')).default;
+  var THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js');
+} catch (e) {
+  document.getElementById('loading').textContent = 'Failed to load game engine. Please check your connection and refresh.';
+  throw e;
+}
+
+// Check WebGL support
+const testCanvas = document.createElement('canvas');
+if (!testCanvas.getContext('webgl') && !testCanvas.getContext('experimental-webgl')) {
+  document.getElementById('loading').textContent = 'WebGL is not supported by your browser. Try Chrome or Firefox.';
+  throw new Error('WebGL not supported');
+}
 
 await RAPIER.init();
 document.getElementById('loading').style.display = 'none';

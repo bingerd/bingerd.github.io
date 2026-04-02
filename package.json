@@ -1,0 +1,16 @@
+{
+  "name": "bingerd.github.io",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Personal portfolio site for Bing Tan — Machine Learning Engineer",
+  "scripts": {
+    "test": "node --test 'tests/*.test.js'",
+    "lint": "eslint js/",
+    "validate": "node --test tests/validate-html.test.js"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "@eslint/js": "^9.0.0"
+  }
+}

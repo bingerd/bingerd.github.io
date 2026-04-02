@@ -10,324 +10,24 @@
 <meta property="og:description" content="Production ML systems, MLOps, and applied research." />
 <meta property="og:type" content="website" />
 
-<style>
-:root {
-  --bg: #000;
-  --fg: #fff;
-  --glass: rgba(0,0,0,0.45);
-  --accent: #d9a4ff;
-}
-[data-theme="light"] {
-  --bg: #f6f6f6;
-  --fg: #0b0b0b;
-  --glass: rgba(255,255,255,0.7);
-  --accent: #7a3cff;
-}
-
-html, body {
-  margin:0; padding:0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background: var(--bg);
-  color: var(--fg);
-  overflow-x: hidden;
-}
-canvas { position: fixed; inset:0; z-index:0; }
-
-/* NAV */
-nav {
-  position: fixed; top:0; width:100%;
-  padding: 14px 24px; display:flex; justify-content:space-between; align-items:center;
-  backdrop-filter: blur(12px);
-  background: var(--glass);
-  z-index:10; box-sizing:border-box;
-}
-nav .logo { font-weight:700; letter-spacing:0.12em; white-space:nowrap; }
-nav ul {
-  display:flex; gap:12px; list-style:none; margin:0; padding:0; align-items:center; flex-wrap:wrap; justify-content:flex-end;
-}
-nav li { cursor:pointer; opacity:0.75; white-space:nowrap; }
-nav li:hover { opacity:1; }
-button.toggle {
-  background:none; border:1px solid currentColor; color:inherit; padding:6px 12px; border-radius:999px;
-  cursor:pointer; font-size:0.75rem;
-}
-
-/* SECTIONS */
-section { min-height:100vh; padding:140px 24px 80px; display:flex; align-items:center; justify-content:center; text-align:center; position:relative; z-index:1; }
-.container { max-width:960px; }
-h1 { font-size:clamp(2.6rem,5vw,4.4rem); margin-bottom:0.6rem; }
-h2 { font-weight:400; opacity:0.75; margin-bottom:2.2rem; }
-p { line-height:1.7; opacity:0.85; }
-.cta {
-  display:inline-block; margin-top:3rem; padding:14px 36px; border-radius:999px;
-  border:1px solid currentColor; text-decoration:none; color:inherit; transition:0.2s all;
-}
-.cta:hover { background: rgba(255,255,255,0.15); transform:translateY(-2px); }
-
-/* PROJECTS */
-.projects {
-  display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:28px; margin-top:56px;
-}
-.card {
-  padding:28px; background: rgba(255,255,255,0.06); border-radius:20px; border:1px solid rgba(255,255,255,0.15);
-  text-align:left; backdrop-filter: blur(8px); transition: transform 0.25s, opacity 0.4s; opacity:0; transform:translateY(20px);
-}
-.card.visible { opacity:1; transform:translateY(0); }
-.card:hover { transform:translateY(-6px); }
-.card h3 { margin: 0 0 12px 0; font-size: 1.2rem; }
-.card p { margin: 0 0 16px 0; font-size: 0.95rem; }
-.card-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: auto;
-}
-.card-tags span {
-  padding: 4px 10px;
-  background: rgba(255,255,255,0.08);
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  opacity: 0.7;
-}
-
-/* BLOG CARDS */
-.blog-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:28px; margin-top:32px; }
-.blog-card {
-  display:flex; flex-direction:column; justify-content:space-between; padding:28px; border-radius:20px;
-  background: rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); backdrop-filter: blur(8px);
-  text-decoration:none; color:inherit; transition: transform 0.25s, opacity 0.4s, box-shadow 0.25s;
-}
-.blog-card:hover { transform:translateY(-6px); box-shadow: 0 12px 32px rgba(0,0,0,0.5); }
-.blog-card h3 { margin:0 0 0.6rem 0; font-size:1.3rem; }
-.blog-card p { margin:0 0 1rem 0; opacity:0.85; line-height:1.6; }
-.blog-card span { font-weight:600; color:var(--accent); align-self:flex-end; }
-.blog-meta { font-size:0.85rem; opacity:0.6; margin-bottom:1rem; }
-
-footer { text-align:center; padding:48px 20px; opacity:0.6; position:relative; z-index:1; }
-
-/* HERO ENHANCEMENTS */
-.hero-label {
-  font-size: 0.9rem;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  opacity: 0.7;
-  margin-bottom: 1rem;
-}
-.hero-title {
-  font-size: clamp(2.4rem, 5vw, 4rem);
-  font-weight: 700;
-  line-height: 1.15;
-  margin-bottom: 1.2rem;
-}
-.hero-sub {
-  font-size: 1.15rem;
-  opacity: 0.8;
-  line-height: 1.6;
-  max-width: 540px;
-  margin: 0 auto;
-}
-.hero-stats {
-  display: flex;
-  justify-content: center;
-  gap: 48px;
-  margin-top: 48px;
-  flex-wrap: wrap;
-}
-.stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.stat-num {
-  font-size: 2.4rem;
-  font-weight: 700;
-  color: var(--accent);
-}
-.stat-label {
-  font-size: 0.85rem;
-  opacity: 0.7;
-  margin-top: 4px;
-}
-
-/* ABOUT ENHANCEMENTS */
-.about-content {
-  text-align: left;
-  max-width: 720px;
-  margin: 0 auto;
-}
-.about-lead {
-  font-size: 1.3rem;
-  font-weight: 500;
-  margin-bottom: 1.5rem;
-  opacity: 0.95;
-}
-.about-focus {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 24px;
-  margin-top: 40px;
-}
-.focus-item {
-  padding: 20px;
-  background: rgba(255,255,255,0.04);
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.08);
-}
-.focus-item h3 {
-  font-size: 1rem;
-  margin: 0 0 8px 0;
-  color: var(--accent);
-}
-.focus-item p {
-  font-size: 0.9rem;
-  margin: 0;
-  opacity: 0.75;
-}
-
-/* SKILLS SECTION */
-#skills { text-align: left; }
-.skills-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 32px;
-  margin-top: 40px;
-}
-.skill-category h3 {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  opacity: 0.6;
-  margin-bottom: 12px;
-}
-.skill-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.skill-tag {
-  padding: 6px 14px;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 999px;
-  font-size: 0.9rem;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-}
-
-/* CASE STUDY ENHANCEMENTS */
-.case-studies {
-  display: grid;
-  gap: 32px;
-  margin-top: 48px;
-}
-.case-study {
-  padding: 32px;
-  border: 1px solid rgba(255,255,255,0.15);
-  border-radius: 16px;
-  text-align: left;
-  background: rgba(255,255,255,0.03);
-}
-.case-study h3 {
-  font-size: 1.3rem;
-  margin: 0 0 20px 0;
-  color: var(--accent);
-}
-.case-study-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 20px;
-}
-.case-study-item h4 {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  opacity: 0.6;
-  margin: 0 0 8px 0;
-}
-.case-study-item p {
-  margin: 0;
-  font-size: 0.95rem;
-}
-.case-study-metrics {
-  display: flex;
-  gap: 32px;
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255,255,255,0.1);
-  flex-wrap: wrap;
-}
-.metric {
-  text-align: center;
-}
-.metric-value {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: var(--accent);
-}
-.metric-label {
-  font-size: 0.8rem;
-  opacity: 0.7;
-}
-
-/* FUN SECTION */
-.fun-section {
-  border-top: 1px dashed rgba(255,255,255,0.2);
-  margin-top: 60px;
-  padding-top: 60px;
-}
-.fun-header {
-  text-align: center;
-  margin-bottom: 32px;
-}
-.fun-header p {
-  opacity: 0.6;
-  font-size: 0.95rem;
-}
-
-/* SECTION INTRO */
-.section-intro {
-  opacity: 0.7;
-  font-size: 1.05rem;
-  margin-bottom: 24px;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-/* DETAILS STYLING */
-details summary {
-  list-style: none;
-}
-details summary::-webkit-details-marker {
-  display: none;
-}
-details[open] summary {
-  margin-bottom: 24px;
-}
-
-@media(max-width:640px){
-  nav{padding:10px 14px;}
-  section{padding-top:120px;}
-  .hero-stats { gap: 24px; }
-  .stat-num { font-size: 1.8rem; }
-  .case-study-metrics { gap: 20px; }
-}
-</style>
+<link rel="stylesheet" href="css/style.css" />
 </head>
 <body data-theme="dark">
 
-<canvas id="bg"></canvas>
+<a href="#about" class="skip-link">Skip to content</a>
 
-<nav>
+<canvas id="bg" aria-hidden="true"></canvas>
+
+<nav aria-label="Main navigation">
   <div class="logo">BING TAN</div>
   <ul>
-    <li onclick="go('about')" aria-label="About">About</li>
-    <li onclick="go('skills')" aria-label="Skills">Skills</li>
-    <li onclick="go('experience')" aria-label="Experience">Experience</li>
-    <li onclick="go('projects')" aria-label="Projects">Projects</li>
-    <li onclick="go('blog')" aria-label="Writing">Writing</li>
-    <li onclick="go('contact')" aria-label="Contact">Contact</li>
-    <li><button class="toggle" onclick="toggleTheme()">Theme</button></li>
+    <li><a href="#about">About</a></li>
+    <li><a href="#skills">Skills</a></li>
+    <li><a href="#experience">Experience</a></li>
+    <li><a href="#projects">Projects</a></li>
+    <li><a href="#blog">Writing</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
   </ul>
 </nav>
 
@@ -341,12 +41,14 @@ details[open] summary {
       <div class="stat"><span class="stat-num">50M+</span><span class="stat-label">Daily Predictions</span></div>
       <div class="stat"><span class="stat-num">42%</span><span class="stat-label">Latency Reduction</span></div>
     </div>
-    <a class="cta" onclick="go('about')">Learn More</a>
+    <a class="cta" href="#about">Learn More</a>
   </div>
 </section>
 
+<main>
+
 <section id="about">
-  <div class="container" role="main">
+  <div class="container">
     <h1>About</h1>
     <div class="about-content">
       <p class="about-lead">
@@ -523,452 +225,175 @@ details[open] summary {
         <p>Because ML engineers need to have fun too. Interactive experiments and silly predictions.</p>
       </div>
 
-      <div style="display: flex; gap: 16px; justify-content: center; margin-bottom: 40px; flex-wrap: wrap;">
-        <a href="games/backprop-runner-canyon.html" class="cta" style="font-size: 0.9rem; padding: 12px 24px;">Play Backprop Runner</a>
-        <a href="animations/neural-field-particles.html" class="cta" style="font-size: 0.9rem; padding: 12px 24px;">Neural Field Particles</a>
+      <div class="fun-links">
+        <a href="games/backprop-runner-canyon.html" class="cta">Play Backprop Runner</a>
+        <a href="animations/neural-field-particles.html" class="cta">Neural Field Particles</a>
       </div>
 
-      <details style="text-align: left;">
-        <summary style="cursor: pointer; font-size: 1.1rem; font-weight: 600; padding: 16px 0; border-top: 1px solid rgba(255,255,255,0.1);">ML Playground Endpoints <span style="opacity: 0.6; font-weight: normal;">(click to expand)</span></summary>
+      <details>
+        <summary>ML Playground Endpoints <span class="hint">(click to expand)</span></summary>
 
-    <div style="display:flex; flex-direction:column; gap:32px; margin-top:24px;">
+        <div class="endpoint-cards">
 
-      <!-- Template for each endpoint -->
-      <div class="endpoint-card" style="padding:24px; border-radius:16px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.15); backdrop-filter:blur(8px);">
-        <h2>/predict/shorts</h2>
-        <p>Will you wear shorts today? Based on weather + thermal comfort.</p>
-        <label>Temperature (°C) <input type="number" id="shorts-temp" placeholder="23" style="width:100%; padding:6px; border-radius:6px;"></label>
-        <label>Humidity (%) <input type="number" id="shorts-humidity" placeholder="40" style="width:100%; padding:6px; border-radius:6px;"></label>
-        <label>Wind (m/s) <input type="number" id="shorts-wind" placeholder="2" style="width:100%; padding:6px; border-radius:6px;"></label>
-        <label>Condition
-          <select id="shorts-condition" style="width:100%; padding:6px; border-radius:6px;">
-            <option>Sunny</option><option>Cloudy</option><option>Rainy</option><option>Storm</option><option>Snow</option>
-          </select>
-        </label>
-        <button onclick="predictShortsEndpoint()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
-        <pre id="shorts-output" style="margin-top:8px;"></pre>
-      </div>
+          <div class="endpoint-card">
+            <h2>/predict/shorts</h2>
+            <p>Will you wear shorts today? Based on weather + thermal comfort.</p>
+            <label>Temperature (°C) <input type="number" id="shorts-temp" placeholder="23"></label>
+            <label>Humidity (%) <input type="number" id="shorts-humidity" placeholder="40"></label>
+            <label>Wind (m/s) <input type="number" id="shorts-wind" placeholder="2"></label>
+            <label>Condition
+              <select id="shorts-condition">
+                <option>Sunny</option><option>Cloudy</option><option>Rainy</option><option>Storm</option><option>Snow</option>
+              </select>
+            </label>
+            <button onclick="runPrediction('shorts')">Predict</button>
+            <pre id="shorts-output"></pre>
+          </div>
 
-      <div class="endpoint-card">
-        <h2>/predict/coffee-need</h2>
-        <p>Do you need coffee right now?</p>
-        <label>Heart rate <input type="number" id="coffee-hr" placeholder="75"></label>
-        <label>Hours sleep <input type="number" id="coffee-sleep" placeholder="6"></label>
-        <label>Mood
-          <select id="coffee-mood"><option>Happy</option><option>Tired</option><option>Stressed</option><option>Neutral</option></select>
-        </label>
-        <label>Time of day <input type="number" id="coffee-hour" placeholder="14"></label>
-        <button onclick="predictCoffee()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
-        <pre id="coffee-output" style="margin-top:8px;"></pre>
-      </div>
+          <div class="endpoint-card">
+            <h2>/predict/coffee-need</h2>
+            <p>Do you need coffee right now?</p>
+            <label>Heart rate <input type="number" id="coffee-hr" placeholder="75"></label>
+            <label>Hours sleep <input type="number" id="coffee-sleep" placeholder="6"></label>
+            <label>Mood
+              <select id="coffee-mood"><option>Happy</option><option>Tired</option><option>Stressed</option><option>Neutral</option></select>
+            </label>
+            <label>Time of day <input type="number" id="coffee-hour" placeholder="14"></label>
+            <button onclick="runPrediction('coffee')">Predict</button>
+            <pre id="coffee-output"></pre>
+          </div>
 
-      <div class="endpoint-card">
-        <h2>/meme-generator</h2>
-        <p>Generate a random ML meme for your stress level.</p>
-        <label>Stress level (1-10) <input type="number" id="meme-stress" placeholder="5"></label>
-        <label>Framework <input type="text" id="meme-framework" placeholder="PyTorch"></label>
-        <button onclick="generateMeme()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Generate Meme</button>
-        <pre id="meme-output" style="margin-top:8px;"></pre>
-      </div>
+          <div class="endpoint-card">
+            <h2>/meme-generator</h2>
+            <p>Generate a random ML meme for your stress level.</p>
+            <label>Stress level (1-10) <input type="number" id="meme-stress" placeholder="5"></label>
+            <label>Framework <input type="text" id="meme-framework" placeholder="PyTorch"></label>
+            <button onclick="runPrediction('meme')">Generate Meme</button>
+            <pre id="meme-output"></pre>
+          </div>
 
-      <div class="endpoint-card">
-        <h2>/predict/work-from-home-outfit</h2>
-        <p>Perfect remote work outfit based on your day.</p>
-        <label>Zoom calls today <input type="number" id="outfit-zoom" placeholder="2"></label>
-        <label>Coffee intake (cups) <input type="number" id="outfit-coffee" placeholder="1"></label>
-        <label>Weather <input type="text" id="outfit-weather" placeholder="Sunny"></label>
-        <button onclick="predictOutfit()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
-        <pre id="outfit-output" style="margin-top:8px;"></pre>
-      </div>
+          <div class="endpoint-card">
+            <h2>/predict/work-from-home-outfit</h2>
+            <p>Perfect remote work outfit based on your day.</p>
+            <label>Zoom calls today <input type="number" id="outfit-zoom" placeholder="2"></label>
+            <label>Coffee intake (cups) <input type="number" id="outfit-coffee" placeholder="1"></label>
+            <label>Weather <input type="text" id="outfit-weather" placeholder="Sunny"></label>
+            <button onclick="runPrediction('outfit')">Predict</button>
+            <pre id="outfit-output"></pre>
+          </div>
 
-      <div class="endpoint-card">
-        <h2>/predict/motivation</h2>
-        <p>How motivated will you be today?</p>
-        <label>Day of week <input type="text" id="motivation-day" placeholder="Monday"></label>
-        <label>Hours slept <input type="number" id="motivation-sleep" placeholder="7"></label>
-        <label>Calendar meetings <input type="number" id="motivation-meetings" placeholder="3"></label>
-        <button onclick="predictMotivation()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
-        <pre id="motivation-output" style="margin-top:8px;"></pre>
-      </div>
+          <div class="endpoint-card">
+            <h2>/predict/motivation</h2>
+            <p>How motivated will you be today?</p>
+            <label>Day of week <input type="text" id="motivation-day" placeholder="Monday"></label>
+            <label>Hours slept <input type="number" id="motivation-sleep" placeholder="7"></label>
+            <label>Calendar meetings <input type="number" id="motivation-meetings" placeholder="3"></label>
+            <button onclick="runPrediction('motivation')">Predict</button>
+            <pre id="motivation-output"></pre>
+          </div>
 
-      <div class="endpoint-card">
-        <h2>/predict/pizza-topping</h2>
-        <p>Optimal pizza topping combo based on your mood and time.</p>
-        <label>Mood <input type="text" id="pizza-mood" placeholder="Happy"></label>
-        <label>Time of day <input type="number" id="pizza-hour" placeholder="19"></label>
-        <label>Weather <input type="text" id="pizza-weather" placeholder="Rainy"></label>
-        <button onclick="predictPizza()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
-        <pre id="pizza-output" style="margin-top:8px;"></pre>
-      </div>
+          <div class="endpoint-card">
+            <h2>/predict/pizza-topping</h2>
+            <p>Optimal pizza topping combo based on your mood and time.</p>
+            <label>Mood <input type="text" id="pizza-mood" placeholder="Happy"></label>
+            <label>Time of day <input type="number" id="pizza-hour" placeholder="19"></label>
+            <label>Weather <input type="text" id="pizza-weather" placeholder="Rainy"></label>
+            <button onclick="runPrediction('pizza')">Predict</button>
+            <pre id="pizza-output"></pre>
+          </div>
 
-      <div class="endpoint-card">
-        <h2>/predict/LLM-sanity</h2>
-        <p>Is your LLM about to hallucinate?</p>
-        <label>Prompt length <input type="number" id="llm-prompt" placeholder="120"></label>
-        <label>Temperature <input type="number" id="llm-temp" placeholder="0.7" step="0.1"></label>
-        <label>Token count <input type="number" id="llm-tokens" placeholder="512"></label>
-        <button onclick="predictLLM()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
-        <pre id="llm-output" style="margin-top:8px;"></pre>
-      </div>
+          <div class="endpoint-card">
+            <h2>/predict/LLM-sanity</h2>
+            <p>Is your LLM about to hallucinate?</p>
+            <label>Prompt length <input type="number" id="llm-prompt" placeholder="120"></label>
+            <label>Temperature <input type="number" id="llm-temp" placeholder="0.7" step="0.1"></label>
+            <label>Token count <input type="number" id="llm-tokens" placeholder="512"></label>
+            <button onclick="runPrediction('llm')">Predict</button>
+            <pre id="llm-output"></pre>
+          </div>
 
-      <div class="endpoint-card">
-        <h2>/predict/pet-reaction</h2>
-        <p>Predict your pet’s reaction to your new haircut.</p>
-        <label>Pet type <input type="text" id="pet-type" placeholder="Cat"></label>
-        <label>Haircut length <input type="text" id="pet-haircut" placeholder="Short"></label>
-        <label>Hair color <input type="text" id="pet-color" placeholder="Brown"></label>
-        <button onclick="predictPet()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
-        <pre id="pet-output" style="margin-top:8px;"></pre>
-      </div>
+          <div class="endpoint-card">
+            <h2>/predict/pet-reaction</h2>
+            <p>Predict your pet's reaction to your new haircut.</p>
+            <label>Pet type <input type="text" id="pet-type" placeholder="Cat"></label>
+            <label>Haircut length <input type="text" id="pet-haircut" placeholder="Short"></label>
+            <label>Hair color <input type="text" id="pet-color" placeholder="Brown"></label>
+            <button onclick="runPrediction('pet')">Predict</button>
+            <pre id="pet-output"></pre>
+          </div>
 
-      <div class="endpoint-card">
-        <h2>/predict/marathon-performance</h2>
-        <p>Predict your marathon finish time (fun version).</p>
-        <label>Distance (km) <input type="number" id="marathon-distance" placeholder="10"></label>
-        <label>Playlist type <input type="text" id="marathon-playlist" placeholder="Beyoncé"></label>
-        <label>Hydration level <input type="number" id="marathon-hydration" placeholder="3"></label>
-        <label>Weather <input type="text" id="marathon-weather" placeholder="Sunny"></label>
-        <button onclick="predictMarathon()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
-        <pre id="marathon-output" style="margin-top:8px;"></pre>
-      </div>
+          <div class="endpoint-card">
+            <h2>/predict/marathon-performance</h2>
+            <p>Predict your marathon finish time (fun version).</p>
+            <label>Distance (km) <input type="number" id="marathon-distance" placeholder="10"></label>
+            <label>Playlist type <input type="text" id="marathon-playlist" placeholder="Beyoncé"></label>
+            <label>Hydration level <input type="number" id="marathon-hydration" placeholder="3"></label>
+            <label>Weather <input type="text" id="marathon-weather" placeholder="Sunny"></label>
+            <button onclick="runPrediction('marathon')">Predict</button>
+            <pre id="marathon-output"></pre>
+          </div>
 
-      <div class="endpoint-card">
-        <h2>/predict/perf-mode-chaos</h2>
-        <p>How chaotic will Perf Mode get today?</p>
-        <label>Coffee level (cups) <input type="number" id="chaos-coffee" placeholder="2"></label>
-        <label>Last commit hour <input type="number" id="chaos-commit" placeholder="23"></label>
-        <label>Ambient music <input type="text" id="chaos-music" placeholder="Lo-fi"></label>
-        <button onclick="predictChaos()" style="margin-top:8px; padding:10px; border-radius:999px; background:var(--accent); font-weight:600;">Predict</button>
-        <pre id="chaos-output" style="margin-top:8px;"></pre>
-      </div>
+          <div class="endpoint-card">
+            <h2>/predict/perf-mode-chaos</h2>
+            <p>How chaotic will Perf Mode get today?</p>
+            <label>Coffee level (cups) <input type="number" id="chaos-coffee" placeholder="2"></label>
+            <label>Last commit hour <input type="number" id="chaos-commit" placeholder="23"></label>
+            <label>Ambient music <input type="text" id="chaos-music" placeholder="Lo-fi"></label>
+            <button onclick="runPrediction('chaos')">Predict</button>
+            <pre id="chaos-output"></pre>
+          </div>
 
-    </div>
+        </div>
       </details>
     </div>
   </div>
 </section>
 
-<style>
-/* Endpoint Cards */
-.endpoint-card {
-  padding:24px; 
-  border-radius:16px; 
-  background: rgba(255,255,255,0.06); 
-  border:1px solid rgba(255,255,255,0.15); 
-  backdrop-filter: blur(8px);
-  display:flex;
-  flex-direction:column;
-  gap:12px;
-}
-
-/* Inputs */
-.endpoint-card input, .endpoint-card select {
-  width:100%;
-  padding:8px 12px;
-  border-radius:8px;
-  border:1px solid rgba(255,255,255,0.3);
-  background: rgba(255,255,255,0.05);
-  color: var(--fg);
-  font-size:0.95rem;
-  transition: 0.2s all;
-}
-
-.endpoint-card input:focus, .endpoint-card select:focus {
-  outline:none;
-  border-color: var(--accent);
-  background: rgba(255,255,255,0.1);
-}
-
-/* Buttons */
-.endpoint-card button {
-  margin-top:8px;
-  padding:10px;
-  border-radius:999px;
-  background: var(--accent);
-  font-weight:600;
-  color: var(--fg);
-  border:none;
-  cursor:pointer;
-  transition: 0.2s all;
-}
-.endpoint-card button:hover {
-  transform: translateY(-2px);
-  opacity:0.9;
-}
-
-/* Pre output */
-.endpoint-card pre {
-  margin-top:8px;
-  background: rgba(255,255,255,0.05);
-  padding:12px;
-  border-radius:8px;
-  font-size:0.95rem;
-  overflow-x:auto;
-  color: var(--fg);
-}
-
-/* Remove default h2 margin */
-.endpoint-card h2 { margin:0; font-size:1.3rem; }
-
-.endpoint-card p { margin:0.3em 0 0.8em 0; opacity:0.85; }
-</style>
-
-<script>
-/* ==== ENDPOINT FUNCTIONS ==== */
-
-// 1. Shorts predictor (same TCI logic)
-function thermalComfortIndex(temp, humidity, wind){
-  const wind_factor = -0.5 * wind;
-  return temp - 0.55*(1 - humidity/100)*(temp-14) + wind_factor;
-}
-function predictShortsEndpoint(){
-  const temp = parseFloat(document.getElementById("shorts-temp").value) || 23;
-  const humidity = parseFloat(document.getElementById("shorts-humidity").value) || 40;
-  const wind = parseFloat(document.getElementById("shorts-wind").value) || 2;
-  const condition = document.getElementById("shorts-condition").value;
-  const TCI = thermalComfortIndex(temp, humidity, wind);
-  const wear = TCI>=20 && !["rainy","storm","snow"].includes(condition.toLowerCase());
-  document.getElementById("shorts-output").textContent = wear
-    ? `TCI: ${TCI.toFixed(1)}°C → Shorts! 😎`
-    : `TCI: ${TCI.toFixed(1)}°C → Maybe pants 🥶`;
-}
-
-// 2. Coffee need
-function predictCoffee(){
-  const hr = parseFloat(document.getElementById("coffee-hr").value) || 70;
-  const sleep = parseFloat(document.getElementById("coffee-sleep").value) || 6;
-  const mood = document.getElementById("coffee-mood").value;
-  const hour = parseFloat(document.getElementById("coffee-hour").value) || 14;
-  const score = (80-hr)/10 + (8-sleep)*1.5 + (mood==="Tired"?2:0) + (hour>10?1:0);
-  const need = score>2;
-  document.getElementById("coffee-output").textContent = need ? "☕ Triple espresso time!" : "😌 No coffee needed yet.";
-}
-
-// 3. Meme generator
-function generateMeme(){
-  const stress = parseInt(document.getElementById("meme-stress").value) || 5;
-  const fw = document.getElementById("meme-framework").value || "PyTorch";
-  const memes = [
-    `When ${fw} finally trains without exploding 🤯`,
-    `Debugging ${fw} at 3am 🦾`,
-    `${fw} model is hallucinating again 🌀`,
-    `Me trying to vectorize my ${fw} code...`
-  ];
-  const idx = Math.floor(Math.random()*memes.length);
-  document.getElementById("meme-output").textContent = memes[idx];
-}
-
-// 4. Work from home outfit
-function predictOutfit(){
-  const zoom = parseInt(document.getElementById("outfit-zoom").value) || 2;
-  const coffee = parseInt(document.getElementById("outfit-coffee").value) || 1;
-  const weather = document.getElementById("outfit-weather").value || "Sunny";
-  let outfit = "Pajamas all day 🩳";
-  if(zoom>0) outfit = "Business top, pajama bottom 👔🩳";
-  if(weather.toLowerCase().includes("rain")) outfit += " + Raincoat 🌧️";
-  document.getElementById("outfit-output").textContent = outfit;
-}
-
-// 5. Motivation
-function predictMotivation(){
-  const sleep = parseFloat(document.getElementById("motivation-sleep").value) || 7;
-  const meetings = parseInt(document.getElementById("motivation-meetings").value) || 2;
-  const day = document.getElementById("motivation-day").value || "Monday";
-  const score = sleep - meetings*0.5 + (day.toLowerCase().includes("mon")? -1:0);
-  let msg = score>5 ? "High motivation ⚡" : score>3 ? "Moderate motivation 🙂" : "Low motivation 🛌";
-  document.getElementById("motivation-output").textContent = msg;
-}
-
-// 6. Pizza topping
-function predictPizza(){
-  const mood = document.getElementById("pizza-mood").value || "Happy";
-  const hour = parseInt(document.getElementById("pizza-hour").value) || 19;
-  const weather = document.getElementById("pizza-weather").value || "Sunny";
-  const toppings = ["Pepperoni","Mushroom","Pineapple","Jalapeño","Extra cheese","Olives"];
-  const choice = toppings[Math.floor(Math.random()*toppings.length)];
-  document.getElementById("pizza-output").textContent = `Pizza topping for your mood: ${choice} 🍕`;
-}
-
-// 7. LLM sanity
-function predictLLM(){
-  const prompt = parseInt(document.getElementById("llm-prompt").value) || 100;
-  const temp = parseFloat(document.getElementById("llm-temp").value) || 0.7;
-  const tokens = parseInt(document.getElementById("llm-tokens").value) || 512;
-  const score = prompt*0.01 + temp*5 + tokens*0.001;
-  const status = score>10 ? "LLM is hallucinating 🌀" : "LLM stable ✅";
-  document.getElementById("llm-output").textContent = status;
-}
-
-// 8. Pet reaction
-function predictPet(){
-  const pet = document.getElementById("pet-type").value || "Cat";
-  const haircut = document.getElementById("pet-haircut").value || "Short";
-  const color = document.getElementById("pet-color").value || "Brown";
-  const reactions = ["Judgment intensifies 😾","Confused 🐶","Excited 🐕","Indifferent 😼"];
-  const idx = Math.floor(Math.random()*reactions.length);
-  document.getElementById("pet-output").textContent = `${pet} reaction: ${reactions[idx]}`;
-}
-
-// 9. Marathon performance
-function predictMarathon(){
-  const dist = parseInt(document.getElementById("marathon-distance").value) || 10;
-  const playlist = document.getElementById("marathon-playlist").value || "Beyoncé";
-  const hydration = parseInt(document.getElementById("marathon-hydration").value) || 3;
-  const weather = document.getElementById("marathon-weather").value || "Sunny";
-  const pace = 5 + Math.random(); // minutes/km
-  const time = pace*dist;
-  document.getElementById("marathon-output").textContent = `You'll run ${dist}km in ${time.toFixed(1)} min (~${pace.toFixed(1)} min/km) while listening to ${playlist} 🎵`;
-}
-
-// 10. Perf-mode chaos
-function predictChaos(){
-  const coffee = parseInt(document.getElementById("chaos-coffee").value) || 2;
-  const commit = parseInt(document.getElementById("chaos-commit").value) || 23;
-  const music = document.getElementById("chaos-music").value || "Lo-fi";
-  const chaos = Math.min(10, coffee + Math.random()*3 + (commit>20?1:0));
-  document.getElementById("chaos-output").textContent = `Perf mode chaos level: ${chaos.toFixed(1)}/10 🌈🔥 (music: ${music})`;
-}
-</script>
-
 <section id="contact">
   <div class="container">
     <h1>Contact</h1>
-    <p style="display:flex; gap:32px; justify-content:center; align-items:center;">
-      <a href="mailto:bxntan@gmail.com" aria-label="Email" title="Email" style="color:inherit;">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <div class="contact-links">
+      <a href="mailto:bxntan@gmail.com" aria-label="Send email to Bing Tan" title="Email">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="2" y="4" width="20" height="16" rx="2" />
           <path d="M22 6l-10 7L2 6" />
         </svg>
       </a>
-      <a href="https://www.github.com/bingerd" aria-label="GitHub" title="GitHub" style="color:inherit;">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <a href="https://www.github.com/bingerd" aria-label="Bing Tan on GitHub" title="GitHub">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
         </svg>
       </a>
-      <a href="https://www.linkedin.com/in/bingerd" aria-label="LinkedIn" title="LinkedIn" style="color:inherit;">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <a href="https://www.linkedin.com/in/bingerd" aria-label="Bing Tan on LinkedIn" title="LinkedIn">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
           <rect x="2" y="9" width="4" height="12" />
           <circle cx="4" cy="4" r="2" />
         </svg>
       </a>
-    </p>
+    </div>
   </div>
 </section>
 
+</main>
 
 <footer>
   <p>© 2026 Bing Tan</p>
-  <p style="margin-top: 12px; font-size: 0.75rem;"><span onclick="togglePerf()" style="cursor: pointer; opacity: 0.4; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.4'">Toggle chaos mode</span></p>
+  <p style="margin-top: 12px;"><button class="chaos-toggle" onclick="togglePerf()">Toggle chaos mode</button></p>
 </footer>
 
-<script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
-
-const canvas = document.getElementById('bg');
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
-camera.position.z = 6;
-
-const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-
-const geometry = new THREE.IcosahedronGeometry(1.6, 64);
-const material = new THREE.ShaderMaterial({
-  uniforms:{
-    time:{ value:0 },
-    colorA:{ value:new THREE.Color(0.9,0.6,1.0) },
-    colorB:{ value:new THREE.Color(0.15,0.15,0.15) }
-  },
-  vertexShader:`
-    uniform float time;
-    varying vec3 vNormal;
-    void main(){
-      vNormal = normal;
-      vec3 pos = position + normal * sin(time + position.y * 6.0) * 0.12;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(pos,1.0);
-    }
-  `,
-  fragmentShader:`
-    uniform vec3 colorA;
-    uniform vec3 colorB;
-    varying vec3 vNormal;
-    void main(){
-      float i = pow(0.55 - dot(vNormal,vec3(0.0,0.0,1.0)),2.0);
-      vec3 color = mix(colorB,colorA,i);
-      gl_FragColor = vec4(color,1.0);
-    }
-  `,
-  wireframe:true
-});
-
-const mesh = new THREE.Mesh(geometry, material);
-scene.add(mesh);
-
-let perfMode = false;
-
-function animate(t){
-  material.uniforms.time.value = t*0.001;
-  if(perfMode){
-    // CHAOS MODE: spin fast, jitter, rainbow
-    mesh.rotation.x += 0.2 + Math.sin(t*0.01)*0.1;
-    mesh.rotation.y += 0.3 + Math.cos(t*0.01)*0.1;
-    material.uniforms.colorA.value.setHSL(Math.sin(t*0.005)*0.5+0.5,1.0,0.5);
-    material.uniforms.colorB.value.setHSL(Math.cos(t*0.005)*0.5+0.5,1.0,0.5);
-    // Optional: camera shake
-    camera.position.x = Math.sin(t*0.01)*0.2;
-    camera.position.y = Math.cos(t*0.008)*0.2;
-  } else {
-    mesh.rotation.y += 0.0015;
-    camera.position.x = 0;
-    camera.position.y = 0;
-  }
-  renderer.render(scene,camera);
-  requestAnimationFrame(animate);
-}
-animate(0);
-
-window.addEventListener('resize',()=>{
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth,window.innerHeight);
-});
-
-window.addEventListener('scroll',()=>{ camera.position.z = 6 + window.scrollY*0.002; });
-
-window.togglePerf = ()=> perfMode = !perfMode;
-window.toggleTheme = ()=>{
-  const dark = document.body.dataset.theme==='dark';
-  document.body.dataset.theme = dark?'light':'dark';
-  if(dark){
-    material.uniforms.colorA.value.set(0.15,0.15,0.15);
-    material.uniforms.colorB.value.set(0.9,0.9,0.9);
-  } else {
-    material.uniforms.colorA.value.set(0.9,0.6,1.0);
-    material.uniforms.colorB.value.set(0.15,0.15,0.15);
-  }
-};
-</script>
-
+<script src="js/predictions.js"></script>
+<script src="js/main.js"></script>
+<script type="module" src="js/background.js" onerror="document.getElementById('bg').style.display='none'"></script>
 <script>
-function go(id){ document.getElementById(id).scrollIntoView({behavior:'smooth'}); }
-
-// BLOG
-const blogPosts=[
-  { title:"Designing ML systems that don’t fail in production", description:"Senior-level strategies for robust, production-ready machine learning systems.", href:"docs/blog/2026/ml-production.html", date:"2026-01-01", category:"ML Engineering"},
-  { title:"MLOps lessons learned shipping real models", description:"Key operational insights, monitoring strategies, and deployment lessons from production ML.", href:"docs/blog/2026/mlops-lessons.html", date:"2026-01-02", category:"MLOps"},
-  { title:"Transformers, KV Caching, and Scaling LLMs", description:"Deep dive into transformer internals, KV caching, and production optimizations.", href:"docs/blog/2026/transformers-kv-caching.html", date:"2026-01-03", category:"LLM Engineering"},
-  { title:"Serving PyTorch Models with Rust", description:"High-performance, memory-safe ML serving using Rust and TorchScript.", href:"docs/blog/2026/rust-torch-serving.html", date:"2026-01-04", category:"ML Production"}
-];
-
-const gridB = document.getElementById('blogGrid');
-blogPosts.forEach(post=>{
-  const card=document.createElement('a');
-  card.href=post.href; card.className='blog-card';
-  card.innerHTML=`<div class="blog-meta">${post.date} · ${post.category}</div><h3>${post.title}</h3><p>${post.description}</p><span>Read →</span>`;
-  gridB.appendChild(card);
-});
+  // Fallback theme toggle if background.js fails to load
+  if (!window.toggleTheme) {
+    window.toggleTheme = function() {
+      var dark = document.body.dataset.theme === 'dark';
+      document.body.dataset.theme = dark ? 'light' : 'dark';
+    };
+  }
+  if (!window.togglePerf) window.togglePerf = function() {};
 </script>
 </body>
 </html>
