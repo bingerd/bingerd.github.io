@@ -12,10 +12,17 @@ export default [
         document: 'readonly',
         console: 'readonly',
         requestAnimationFrame: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        clearTimeout: 'readonly',
         matchMedia: 'readonly',
         navigator: 'readonly',
         HTMLCanvasElement: 'readonly',
-        WebGLRenderingContext: 'readonly'
+        WebGLRenderingContext: 'readonly',
+        IntersectionObserver: 'readonly',
+        Date: 'readonly',
+        Math: 'readonly'
       }
     },
     rules: {
@@ -24,7 +31,7 @@ export default [
     }
   },
   {
-    files: ['js/predictions.js', 'js/main.js'],
+    files: ['js/predictions.js', 'js/main.js', 'js/easter-eggs.js'],
     languageOptions: {
       sourceType: 'script',
       globals: {
@@ -34,7 +41,14 @@ export default [
         parseFloat: 'readonly',
         parseInt: 'readonly',
         isNaN: 'readonly',
-        Math: 'readonly'
+        Math: 'readonly',
+        Date: 'readonly',
+        setTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        clearTimeout: 'readonly',
+        requestAnimationFrame: 'readonly',
+        IntersectionObserver: 'readonly'
       }
     },
     rules: {

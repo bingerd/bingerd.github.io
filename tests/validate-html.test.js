@@ -81,7 +81,7 @@ describe('mlops-lessons.html has unique content', () => {
 });
 
 describe('index.html references correct JS files', () => {
-  const jsFiles = ['js/predictions.js', 'js/main.js', 'js/background.js'];
+  const jsFiles = ['js/predictions.js', 'js/main.js', 'js/background.js', 'js/easter-eggs.js'];
 
   for (const jsFile of jsFiles) {
     it(`${jsFile} exists on disk`, () => {

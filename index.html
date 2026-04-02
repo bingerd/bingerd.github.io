@@ -4,10 +4,10 @@
 <meta charset="UTF-8" />
 <title>Bing Tan — Machine Learning Engineer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="description" content="Bing Tan — Machine Learning Engineer. End-to-end ML systems, MLOps, and applied research." />
+<meta name="description" content="Bing Tan — Machine Learning Engineer. Production ML systems, low-latency inference, and the quiet satisfaction of watching p99 drop." />
 
 <meta property="og:title" content="Bing Tan — Machine Learning Engineer" />
-<meta property="og:description" content="Production ML systems, MLOps, and applied research." />
+<meta property="og:description" content="I reduce loss functions for a living. Production ML systems at scale." />
 <meta property="og:type" content="website" />
 
 <link rel="stylesheet" href="css/style.css" />
@@ -26,6 +26,7 @@
     <li><a href="#experience">Experience</a></li>
     <li><a href="#projects">Projects</a></li>
     <li><a href="#blog">Writing</a></li>
+    <li><a href="#playground">Playground</a></li>
     <li><a href="#contact">Contact</a></li>
     <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
   </ul>
@@ -33,13 +34,14 @@
 
 <section id="home">
   <div class="container">
-    <p class="hero-label">Machine Learning Engineer</p>
-    <h1 class="hero-title">I build ML systems<br>that work in production</h1>
-    <p class="hero-sub">From training pipelines to low-latency inference at scale.<br>Turning research into reliable, high-performance products.</p>
+    <p class="hero-label"><code>loss=0.001 · status=converged</code></p>
+    <h1 class="hero-title">I reduce loss functions<br>for a living.</h1>
+    <p class="hero-sub">Production ML systems, low-latency inference, and the quiet satisfaction of watching p99 drop. Currently deployed at scale.</p>
     <div class="hero-stats">
       <div class="stat"><span class="stat-num">2+</span><span class="stat-label">Years in ML</span></div>
       <div class="stat"><span class="stat-num">50M+</span><span class="stat-label">Daily Predictions</span></div>
       <div class="stat"><span class="stat-num">42%</span><span class="stat-label">Latency Reduction</span></div>
+      <div class="stat"><span class="stat-num">99.97%</span><span class="stat-label">Uptime (and counting)</span></div>
     </div>
     <a class="cta" href="#about">Learn More</a>
   </div>
@@ -47,22 +49,30 @@
 
 <main>
 
-<section id="about">
+<section id="about" data-loading-text="Loading training history...">
   <div class="container">
     <h1>About</h1>
+    <div class="model-card">
+      <h2 class="model-card-title">Model Card: bing-tan-v2.6</h2>
+      <dl class="model-card-fields">
+        <dt>Architecture</dt>
+        <dd>Human (coffee-powered transformer variant)</dd>
+        <dt>Training Data</dt>
+        <dd>BSc & MSc Business Analytics @ VU Amsterdam (Computational Intelligence track), 2+ years industry ML</dd>
+        <dt>Intended Use</dt>
+        <dd>Production ML systems, inference optimization, scale</dd>
+        <dt>Fine-tuned On</dt>
+        <dd>PyTorch, Kubernetes, late-night debugging sessions</dd>
+        <dt>Hyperparameters</dt>
+        <dd><code>curiosity=0.95, persistence=0.92, coffee_intake=high</code></dd>
+        <dt>Known Limitations</dt>
+        <dd>Cannot resist optimizing things that are "fine"</dd>
+        <dt>License</dt>
+        <dd>Open to interesting problems</dd>
+      </dl>
+    </div>
     <div class="about-content">
-      <p class="about-lead">
-        I'm Bing — a Machine Learning Engineer specializing in taking models from research to production.
-      </p>
-      <p>
-        My work sits at the intersection of ML engineering, infrastructure, and systems design.
-        I've built and operated inference platforms handling millions of requests, designed training
-        pipelines for large-scale models, and implemented MLOps practices that keep systems reliable.
-      </p>
-      <p>
-        I care about the details that matter: reducing p99 latency, building robust monitoring,
-        designing APIs that scale, and writing code that other engineers can maintain.
-      </p>
+      <h2 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.1em; opacity:0.6; margin-top:48px; margin-bottom:24px;">Primary Capabilities</h2>
       <div class="about-focus">
         <div class="focus-item">
           <h3>Inference & Serving</h3>
@@ -81,7 +91,7 @@
   </div>
 </section>
 
-<section id="skills">
+<section id="skills" data-loading-text="Initializing weight matrices...">
   <div class="container">
     <h1>Tech Stack</h1>
     <div class="skills-grid">
@@ -127,12 +137,13 @@
   </div>
 </section>
 
-<section id="experience">
+<section id="experience" data-loading-text="Fetching evaluation metrics...">
   <div class="container">
     <h1>Case Studies</h1>
     <div class="case-studies">
       <div class="case-study">
-        <h3>Large-Scale Inference Platform</h3>
+        <h3>How We Cut Inference Latency by 42% (Without Losing Sleep)</h3>
+        <p class="case-study-lead">The inference platform was fine. "Fine" was the problem.</p>
         <div class="case-study-grid">
           <div class="case-study-item">
             <h4>Challenge</h4>
@@ -155,7 +166,8 @@
       </div>
 
       <div class="case-study">
-        <h3>Real-Time Feature Platform</h3>
+        <h3>Fixing Train-Serve Skew Before It Fixed Our OKRs</h3>
+        <p class="case-study-lead">Feature values were different in training and serving. The model didn't care. Our users did.</p>
         <div class="case-study-grid">
           <div class="case-study-item">
             <h4>Challenge</h4>
@@ -177,31 +189,56 @@
         </div>
       </div>
     </div>
+
+    <!-- Loss Curve Timeline -->
+    <div class="loss-curve-container">
+      <h2 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.1em; opacity:0.6; margin-bottom:24px; text-align:center;">Training Progress</h2>
+      <svg class="loss-curve" viewBox="0 0 800 200" aria-label="Career timeline visualized as a training loss curve" role="img">
+        <line x1="60" y1="180" x2="760" y2="180" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <line x1="60" y1="20" x2="60" y2="180" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+        <text x="30" y="30" fill="rgba(255,255,255,0.4)" font-size="11" text-anchor="middle">loss</text>
+        <text x="760" y="195" fill="rgba(255,255,255,0.4)" font-size="11" text-anchor="end">epochs</text>
+        <path class="loss-path" d="M 80,40 C 140,38 160,65 220,80 S 320,110 400,125 S 500,148 560,152 S 660,160 740,162" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- Milestone dots and labels -->
+        <circle cx="80" cy="40" r="5" fill="var(--accent)"/>
+        <text x="80" y="28" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">MSc @ VU Amsterdam</text>
+        <circle cx="260" cy="90" r="5" fill="var(--accent)"/>
+        <text x="260" y="78" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">First model in prod</text>
+        <circle cx="480" cy="140" r="5" fill="var(--accent)"/>
+        <text x="480" y="128" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">42% latency cut</text>
+        <circle cx="720" cy="161" r="5" fill="var(--accent)"/>
+        <text x="720" y="149" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">50M daily predictions</text>
+      </svg>
+    </div>
   </div>
 </section>
 
-<section id="projects">
+<section id="projects" data-loading-text="Compiling computation graph...">
   <div class="container">
     <h1>Featured Projects</h1>
     <div class="projects">
       <div class="card visible">
         <h3>LLM Serving Toolkit</h3>
         <p>High-performance inference server with continuous batching, KV cache management, and OpenAI-compatible API.</p>
+        <span class="card-scale">50M+ req/day</span>
         <div class="card-tags"><span>PyTorch</span><span>Rust</span><span>CUDA</span></div>
       </div>
       <div class="card visible">
         <h3>ML Pipeline Framework</h3>
         <p>Declarative ML pipeline orchestration with automatic versioning, caching, and distributed execution.</p>
+        <span class="card-scale">200+ daily runs</span>
         <div class="card-tags"><span>Python</span><span>Ray</span><span>K8s</span></div>
       </div>
       <div class="card visible">
         <h3>Feature Store</h3>
         <p>Real-time feature serving with point-in-time correctness and streaming ingestion for ML models.</p>
+        <span class="card-scale">&lt;10ms p99</span>
         <div class="card-tags"><span>Go</span><span>Redis</span><span>Kafka</span></div>
       </div>
       <div class="card visible">
         <h3>Model Monitor</h3>
         <p>Drift detection, performance monitoring, and alerting system for production ML models.</p>
+        <span class="card-scale">40+ models tracked</span>
         <div class="card-tags"><span>Python</span><span>Prometheus</span><span>Grafana</span></div>
       </div>
     </div>
@@ -209,7 +246,7 @@
   </div>
 </section>
 
-<section id="blog">
+<section id="blog" data-loading-text="Backpropagating through memories...">
   <div class="container">
     <h1>Writing</h1>
     <p class="section-intro">Technical deep-dives on ML systems, infrastructure, and lessons from production.</p>
@@ -217,134 +254,147 @@
   </div>
 </section>
 
-<section id="playground">
+<section id="playground" data-loading-text="Warming up inference endpoints...">
   <div class="container">
     <div class="fun-section">
       <div class="fun-header">
-        <h1>Fun Stuff</h1>
-        <p>Because ML engineers need to have fun too. Interactive experiments and silly predictions.</p>
+        <h1>ML Playground</h1>
+        <p>Every ML system needs an API. Here are some endpoints I'd never put in production.</p>
       </div>
 
-      <div class="fun-links">
-        <a href="games/backprop-runner-canyon.html" class="cta">Play Backprop Runner</a>
-        <a href="animations/neural-field-particles.html" class="cta">Neural Field Particles</a>
+      <div class="experiments-grid">
+        <a href="games/backprop-runner-canyon.html" class="experiment-card">
+          <span class="experiment-icon">&#9654;</span>
+          <h3>Backprop Runner</h3>
+          <p>3D endless runner where you dodge gradient collapse</p>
+        </a>
+        <a href="animations/neural-field-particles.html" class="experiment-card">
+          <span class="experiment-icon">&#10022;</span>
+          <h3>Neural Field Particles</h3>
+          <p>8,000 particles advected through a continuous vector field</p>
+        </a>
       </div>
 
-      <details>
-        <summary>ML Playground Endpoints <span class="hint">(click to expand)</span></summary>
+      <h2 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.1em; opacity:0.6; margin-top:48px; margin-bottom:24px;">Prediction Endpoints</h2>
 
-        <div class="endpoint-cards">
+      <div class="endpoint-cards" id="endpointCards">
 
-          <div class="endpoint-card">
-            <h2>/predict/shorts</h2>
-            <p>Will you wear shorts today? Based on weather + thermal comfort.</p>
-            <label>Temperature (°C) <input type="number" id="shorts-temp" placeholder="23"></label>
-            <label>Humidity (%) <input type="number" id="shorts-humidity" placeholder="40"></label>
-            <label>Wind (m/s) <input type="number" id="shorts-wind" placeholder="2"></label>
-            <label>Condition
-              <select id="shorts-condition">
-                <option>Sunny</option><option>Cloudy</option><option>Rainy</option><option>Storm</option><option>Snow</option>
-              </select>
-            </label>
-            <button onclick="runPrediction('shorts')">Predict</button>
-            <pre id="shorts-output"></pre>
-          </div>
-
-          <div class="endpoint-card">
-            <h2>/predict/coffee-need</h2>
-            <p>Do you need coffee right now?</p>
-            <label>Heart rate <input type="number" id="coffee-hr" placeholder="75"></label>
-            <label>Hours sleep <input type="number" id="coffee-sleep" placeholder="6"></label>
-            <label>Mood
-              <select id="coffee-mood"><option>Happy</option><option>Tired</option><option>Stressed</option><option>Neutral</option></select>
-            </label>
-            <label>Time of day <input type="number" id="coffee-hour" placeholder="14"></label>
-            <button onclick="runPrediction('coffee')">Predict</button>
-            <pre id="coffee-output"></pre>
-          </div>
-
-          <div class="endpoint-card">
-            <h2>/meme-generator</h2>
-            <p>Generate a random ML meme for your stress level.</p>
-            <label>Stress level (1-10) <input type="number" id="meme-stress" placeholder="5"></label>
-            <label>Framework <input type="text" id="meme-framework" placeholder="PyTorch"></label>
-            <button onclick="runPrediction('meme')">Generate Meme</button>
-            <pre id="meme-output"></pre>
-          </div>
-
-          <div class="endpoint-card">
-            <h2>/predict/work-from-home-outfit</h2>
-            <p>Perfect remote work outfit based on your day.</p>
-            <label>Zoom calls today <input type="number" id="outfit-zoom" placeholder="2"></label>
-            <label>Coffee intake (cups) <input type="number" id="outfit-coffee" placeholder="1"></label>
-            <label>Weather <input type="text" id="outfit-weather" placeholder="Sunny"></label>
-            <button onclick="runPrediction('outfit')">Predict</button>
-            <pre id="outfit-output"></pre>
-          </div>
-
-          <div class="endpoint-card">
-            <h2>/predict/motivation</h2>
-            <p>How motivated will you be today?</p>
-            <label>Day of week <input type="text" id="motivation-day" placeholder="Monday"></label>
-            <label>Hours slept <input type="number" id="motivation-sleep" placeholder="7"></label>
-            <label>Calendar meetings <input type="number" id="motivation-meetings" placeholder="3"></label>
-            <button onclick="runPrediction('motivation')">Predict</button>
-            <pre id="motivation-output"></pre>
-          </div>
-
-          <div class="endpoint-card">
-            <h2>/predict/pizza-topping</h2>
-            <p>Optimal pizza topping combo based on your mood and time.</p>
-            <label>Mood <input type="text" id="pizza-mood" placeholder="Happy"></label>
-            <label>Time of day <input type="number" id="pizza-hour" placeholder="19"></label>
-            <label>Weather <input type="text" id="pizza-weather" placeholder="Rainy"></label>
-            <button onclick="runPrediction('pizza')">Predict</button>
-            <pre id="pizza-output"></pre>
-          </div>
-
-          <div class="endpoint-card">
-            <h2>/predict/LLM-sanity</h2>
-            <p>Is your LLM about to hallucinate?</p>
-            <label>Prompt length <input type="number" id="llm-prompt" placeholder="120"></label>
-            <label>Temperature <input type="number" id="llm-temp" placeholder="0.7" step="0.1"></label>
-            <label>Token count <input type="number" id="llm-tokens" placeholder="512"></label>
-            <button onclick="runPrediction('llm')">Predict</button>
-            <pre id="llm-output"></pre>
-          </div>
-
-          <div class="endpoint-card">
-            <h2>/predict/pet-reaction</h2>
-            <p>Predict your pet's reaction to your new haircut.</p>
-            <label>Pet type <input type="text" id="pet-type" placeholder="Cat"></label>
-            <label>Haircut length <input type="text" id="pet-haircut" placeholder="Short"></label>
-            <label>Hair color <input type="text" id="pet-color" placeholder="Brown"></label>
-            <button onclick="runPrediction('pet')">Predict</button>
-            <pre id="pet-output"></pre>
-          </div>
-
-          <div class="endpoint-card">
-            <h2>/predict/marathon-performance</h2>
-            <p>Predict your marathon finish time (fun version).</p>
-            <label>Distance (km) <input type="number" id="marathon-distance" placeholder="10"></label>
-            <label>Playlist type <input type="text" id="marathon-playlist" placeholder="Beyoncé"></label>
-            <label>Hydration level <input type="number" id="marathon-hydration" placeholder="3"></label>
-            <label>Weather <input type="text" id="marathon-weather" placeholder="Sunny"></label>
-            <button onclick="runPrediction('marathon')">Predict</button>
-            <pre id="marathon-output"></pre>
-          </div>
-
-          <div class="endpoint-card">
-            <h2>/predict/perf-mode-chaos</h2>
-            <p>How chaotic will Perf Mode get today?</p>
-            <label>Coffee level (cups) <input type="number" id="chaos-coffee" placeholder="2"></label>
-            <label>Last commit hour <input type="number" id="chaos-commit" placeholder="23"></label>
-            <label>Ambient music <input type="text" id="chaos-music" placeholder="Lo-fi"></label>
-            <button onclick="runPrediction('chaos')">Predict</button>
-            <pre id="chaos-output"></pre>
-          </div>
-
+        <div class="endpoint-card">
+          <h2>/predict/shorts</h2>
+          <p>Will you wear shorts today? Based on weather + thermal comfort.</p>
+          <label>Temperature (°C) <input type="number" id="shorts-temp" placeholder="23"></label>
+          <label>Humidity (%) <input type="number" id="shorts-humidity" placeholder="40"></label>
+          <label>Wind (m/s) <input type="number" id="shorts-wind" placeholder="2"></label>
+          <label>Condition
+            <select id="shorts-condition">
+              <option>Sunny</option><option>Cloudy</option><option>Rainy</option><option>Storm</option><option>Snow</option>
+            </select>
+          </label>
+          <button onclick="runPrediction('shorts')">Predict</button>
+          <pre id="shorts-output"></pre>
         </div>
-      </details>
+
+        <div class="endpoint-card">
+          <h2>/predict/coffee-need</h2>
+          <p>Do you need coffee right now?</p>
+          <label>Heart rate <input type="number" id="coffee-hr" placeholder="75"></label>
+          <label>Hours sleep <input type="number" id="coffee-sleep" placeholder="6"></label>
+          <label>Mood
+            <select id="coffee-mood"><option>Happy</option><option>Tired</option><option>Stressed</option><option>Neutral</option></select>
+          </label>
+          <label>Time of day <input type="number" id="coffee-hour" placeholder="14"></label>
+          <button onclick="runPrediction('coffee')">Predict</button>
+          <pre id="coffee-output"></pre>
+        </div>
+
+        <div class="endpoint-card">
+          <h2>/predict/LLM-sanity</h2>
+          <p>Is your LLM about to hallucinate?</p>
+          <label>Prompt length <input type="number" id="llm-prompt" placeholder="120"></label>
+          <label>Temperature <input type="number" id="llm-temp" placeholder="0.7" step="0.1"></label>
+          <label>Token count <input type="number" id="llm-tokens" placeholder="512"></label>
+          <button onclick="runPrediction('llm')">Predict</button>
+          <pre id="llm-output"></pre>
+        </div>
+
+      </div>
+
+      <div class="endpoint-cards endpoint-cards-hidden" id="moreEndpoints">
+
+        <div class="endpoint-card">
+          <h2>/meme-generator</h2>
+          <p>Generate a random ML meme for your stress level.</p>
+          <label>Stress level (1-10) <input type="number" id="meme-stress" placeholder="5"></label>
+          <label>Framework <input type="text" id="meme-framework" placeholder="PyTorch"></label>
+          <button onclick="runPrediction('meme')">Generate Meme</button>
+          <pre id="meme-output"></pre>
+        </div>
+
+        <div class="endpoint-card">
+          <h2>/predict/work-from-home-outfit</h2>
+          <p>Perfect remote work outfit based on your day.</p>
+          <label>Zoom calls today <input type="number" id="outfit-zoom" placeholder="2"></label>
+          <label>Coffee intake (cups) <input type="number" id="outfit-coffee" placeholder="1"></label>
+          <label>Weather <input type="text" id="outfit-weather" placeholder="Sunny"></label>
+          <button onclick="runPrediction('outfit')">Predict</button>
+          <pre id="outfit-output"></pre>
+        </div>
+
+        <div class="endpoint-card">
+          <h2>/predict/motivation</h2>
+          <p>How motivated will you be today?</p>
+          <label>Day of week <input type="text" id="motivation-day" placeholder="Monday"></label>
+          <label>Hours slept <input type="number" id="motivation-sleep" placeholder="7"></label>
+          <label>Calendar meetings <input type="number" id="motivation-meetings" placeholder="3"></label>
+          <button onclick="runPrediction('motivation')">Predict</button>
+          <pre id="motivation-output"></pre>
+        </div>
+
+        <div class="endpoint-card">
+          <h2>/predict/pizza-topping</h2>
+          <p>Optimal pizza topping combo based on your mood and time.</p>
+          <label>Mood <input type="text" id="pizza-mood" placeholder="Happy"></label>
+          <label>Time of day <input type="number" id="pizza-hour" placeholder="19"></label>
+          <label>Weather <input type="text" id="pizza-weather" placeholder="Rainy"></label>
+          <button onclick="runPrediction('pizza')">Predict</button>
+          <pre id="pizza-output"></pre>
+        </div>
+
+        <div class="endpoint-card">
+          <h2>/predict/pet-reaction</h2>
+          <p>Predict your pet's reaction to your new haircut.</p>
+          <label>Pet type <input type="text" id="pet-type" placeholder="Cat"></label>
+          <label>Haircut length <input type="text" id="pet-haircut" placeholder="Short"></label>
+          <label>Hair color <input type="text" id="pet-color" placeholder="Brown"></label>
+          <button onclick="runPrediction('pet')">Predict</button>
+          <pre id="pet-output"></pre>
+        </div>
+
+        <div class="endpoint-card">
+          <h2>/predict/marathon-performance</h2>
+          <p>Predict your marathon finish time (fun version).</p>
+          <label>Distance (km) <input type="number" id="marathon-distance" placeholder="10"></label>
+          <label>Playlist type <input type="text" id="marathon-playlist" placeholder="Beyoncé"></label>
+          <label>Hydration level <input type="number" id="marathon-hydration" placeholder="3"></label>
+          <label>Weather <input type="text" id="marathon-weather" placeholder="Sunny"></label>
+          <button onclick="runPrediction('marathon')">Predict</button>
+          <pre id="marathon-output"></pre>
+        </div>
+
+        <div class="endpoint-card">
+          <h2>/predict/perf-mode-chaos</h2>
+          <p>How chaotic will Perf Mode get today?</p>
+          <label>Coffee level (cups) <input type="number" id="chaos-coffee" placeholder="2"></label>
+          <label>Last commit hour <input type="number" id="chaos-commit" placeholder="23"></label>
+          <label>Ambient music <input type="text" id="chaos-music" placeholder="Lo-fi"></label>
+          <button onclick="runPrediction('chaos')">Predict</button>
+          <pre id="chaos-output"></pre>
+        </div>
+
+      </div>
+
+      <button class="show-more-btn" id="showMoreBtn" onclick="toggleMoreEndpoints()">Show more endpoints</button>
+
     </div>
   </div>
 </section>
@@ -352,17 +402,20 @@
 <section id="contact">
   <div class="container">
     <h1>Contact</h1>
+    <p class="contact-intro">My inference endpoint is always warm. Reach out about ML systems, interesting problems, or your hot take on batch normalization.</p>
     <div class="contact-links">
       <a href="mailto:bxntan@gmail.com" aria-label="Send email to Bing Tan" title="Email">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="2" y="4" width="20" height="16" rx="2" />
           <path d="M22 6l-10 7L2 6" />
         </svg>
+        <span class="contact-label">Email</span>
       </a>
       <a href="https://www.github.com/bingerd" aria-label="Bing Tan on GitHub" title="GitHub">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
         </svg>
+        <span class="contact-label">GitHub</span>
       </a>
       <a href="https://www.linkedin.com/in/bingerd" aria-label="Bing Tan on LinkedIn" title="LinkedIn">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -370,6 +423,7 @@
           <rect x="2" y="9" width="4" height="12" />
           <circle cx="4" cy="4" r="2" />
         </svg>
+        <span class="contact-label">LinkedIn</span>
       </a>
     </div>
   </div>
@@ -378,12 +432,18 @@
 </main>
 
 <footer>
-  <p>© 2026 Bing Tan</p>
+  <div class="status-bar">
+    <span>Model: bing-tan-v2.6</span>
+    <span>Status: <span class="status-deployed">deployed</span></span>
+    <span>Uptime: <span id="uptimeCounter">0h 0m 0s</span></span>
+    <span>&copy; 2026</span>
+  </div>
   <p style="margin-top: 12px;"><button class="chaos-toggle" onclick="togglePerf()">Toggle chaos mode</button></p>
 </footer>
 
 <script src="js/predictions.js"></script>
 <script src="js/main.js"></script>
+<script src="js/easter-eggs.js"></script>
 <script type="module" src="js/background.js" onerror="document.getElementById('bg').style.display='none'"></script>
 <script>
   // Fallback theme toggle if background.js fails to load

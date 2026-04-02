@@ -44,6 +44,13 @@ scene.add(mesh);
 let perfMode = false;
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// Mouse-reactive parallax
+let mouseX = 0, mouseY = 0;
+window.addEventListener('mousemove', (e) => {
+  mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+  mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+});
+
 function animate(t){
   material.uniforms.time.value = t*0.001;
   if(prefersReducedMotion){
@@ -59,6 +66,9 @@ function animate(t){
     camera.position.y = Math.cos(t*0.008)*0.2;
   } else {
     mesh.rotation.y += 0.0015;
+    // Subtle mouse parallax
+    mesh.rotation.x += (mouseY * 0.3 - mesh.rotation.x) * 0.02;
+    mesh.rotation.y += (mouseX * 0.3 - mesh.rotation.y) * 0.02;
     camera.position.x = 0;
     camera.position.y = 0;
   }
