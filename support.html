@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Atlas Support — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Support and FAQ for Atlas, a private on-device AI second brain for iPhone." />
+  <meta name="robots" content="index, follow" />
+  <link rel="stylesheet" href="css/blog.css" />
+</head>
+<body data-theme="dark">
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="index.html">Home</a></li>
+    <li><a href="index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Atlas Support</h1>
+  <p>
+    <strong>Contact: <a href="mailto:bxntan@gmail.com">bxntan@gmail.com</a></strong><br>
+    See also the <a href="privacy.html">Atlas Privacy Policy</a>.
+  </p>
+
+  <h2>Frequently asked</h2>
+
+  <h3>Where is my data?</h3>
+  <p>
+    On your device, and nowhere else. Atlas has no servers and no accounts. Back
+    up your device (iCloud or computer backup) and Atlas's data is included.
+  </p>
+
+  <h3>Why is there a 3 GB download?</h3>
+  <p>
+    The AI assistant runs entirely on your iPhone. The download is the AI model
+    itself (Google's Gemma, open weights) — fetched once, then everything works
+    offline. Search and organization work even without the model.
+  </p>
+
+  <h3>The assistant is slow or won't load.</h3>
+  <p>
+    The model needs roughly 3 GB of free storage and performs best on iPhones
+    with 6 GB+ memory (iPhone 12 Pro or newer). Close other heavy apps and
+    re-open Atlas; the first response after launch includes a one-time warmup.
+  </p>
+
+  <h3>How do I import my notes?</h3>
+  <p>
+    Share anything to Atlas from any app, import files in the Documents tab,
+    or watch a folder in Settings → Watched Folders. Markdown, text, PDFs,
+    images (with text recognition), and exported email (.eml/.mbox) are
+    supported.
+  </p>
+
+  <h3>How do I get my email in?</h3>
+  <p>
+    Export messages from your mail app as .eml files (or a mailbox as .mbox)
+    into a folder Atlas watches. Atlas deliberately never connects to your mail
+    account — that would require sending credentials over the network.
+  </p>
+
+  <h3>What does "Atlas noticed" mean?</h3>
+  <p>
+    Deterministic checks over data you already have — health trends, quiet
+    folders, people you haven't seen in a while. No AI involved; you can turn
+    them off in Settings → Observations.
+  </p>
+
+  <h3>How do I delete everything?</h3>
+  <p>
+    Settings → Reset All Data, or just delete the app. There is no copy
+    anywhere else.
+  </p>
+
+  <h3>Why does location need "Always" access?</h3>
+  <p>
+    The optional visit log uses Apple's low-power visit detection, which iOS
+    only provides with Always access. The feature is off by default; locations
+    are rounded, stay on device, and are never transmitted.
+  </p>
+
+  <h3>Something's broken.</h3>
+  <p>
+    Settings → Diagnostics Dashboard shows performance and errors and can export
+    a report — attach it to your email. The report contains device metrics and
+    error messages only, never your documents. (Developer builds also include a
+    Super Demo self-test under Settings → Showcase.)
+  </p>
+
+  <h2>Version history</h2>
+  <ul>
+    <li><strong>1.0</strong> — Initial release.</li>
+  </ul>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script>
+  window.toggleTheme = function() {
+    var dark = document.body.dataset.theme === 'dark';
+    document.body.dataset.theme = dark ? 'light' : 'dark';
+  };
+</script>
+</body>
+</html>
