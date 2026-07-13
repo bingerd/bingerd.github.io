@@ -48,6 +48,11 @@
 
   <p>There's a second, less glamorous layer of domain knowledge that runs <em>before</em> the encoder ever sees a token: lexical preprocessing. A <code>LexicalPreprocessor</code> enriches each raw query with markers the model can use. Flashtext for exact matching against known book titles, since books are a notorious intent trap where a title looks like a natural-language sentence. Rapidfuzz for fuzzy hits against category names. Some NLTK-derived token features. Feature engineering feeding a transformer felt slightly heretical in 2026, like installing a carburetor on an EV. It also measurably helped, and "measurably helped" wins that argument every time. Short queries are information-starved, so anything that injects domain knowledge before 32 tokens of budget runs out is worth its complexity.</p>
 
+  <div class="playground-callout">
+    <p class="pc-label">Try it</p>
+    <p>The training loop underneath BERT fine-tuning lives in two playgrounds. <strong><a href="../../../playground/neural-trainer.html">Neural Trainer</a></strong> builds a 2→8→8→1 network by hand and trains it live — watch the loss curve fall and the decision boundary form on XOR, circles, or spirals. <strong><a href="../../../playground/gradient-descent.html">Gradient Descent Playground</a></strong> isolates the optimizer: place a ball on a loss surface, pick a learning rate, and discover how fast it converges, oscillates, or overshoots.</p>
+  </div>
+
   <h2>Then it became three tasks</h2>
 
   <p>Intent classification alone wasn't enough for the search team. Two more questions kept coming up. <em>Does this query contain a brand or creator name?</em> That's entity recognition, and knowing "stan smith" is a shoe and not a person changes everything. And <em>which product category does this query most likely belong to?</em> That one is a prediction over roughly fifteen thousand categories.</p>
@@ -111,6 +116,11 @@ flowchart LR
   <p>For experiment tracking we used BigQuery. Not MLflow, not Weights &amp; Biases. A BigQuery table with a timestamp, a run name, a dataset reference, a JSON <code>configuration</code> column, and a nested <code>metrics</code> record. Every training run appends a row, handled by a couple of CLI flags (<code>--bq_table_id</code>, <code>--bq_create_table</code>) in the trainer. I expected to miss a proper tracking UI and mostly didn't. The query language you already know turns out to be a fine way to ask "show me all runs on this dataset ordered by F1". The JSON config column means no schema migration when hyperparameters grow. And there's no tracking server to babysit. For a small team, a table you can SQL is 90% of the value at 10% of the ceremony. The dashboards, when we wanted them, were one connected sheet away.</p>
 
   <p>The final artifact ships to a GKE cluster behind a FastAPI service with request batching. But the serving side, the Terraform behind it, and the load tests we pointed at it are their own story, in <a href="terraform-load-testing.html">the next post</a>.</p>
+
+  <div class="playground-callout">
+    <p class="pc-label">Play it</p>
+    <p><strong><a href="../../../games/backprop-runner-canyon.html">Backprop Runner: Final Manifold</a></strong> — A 3D endless runner where you dodge gradient collapse. The loss function is your score; the speed is your epoch counter. Easier than tuning a learning rate. Harder than it looks.</p>
+  </div>
 
   <h2>References</h2>
   <ul class="references">

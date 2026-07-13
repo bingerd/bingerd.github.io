@@ -110,6 +110,11 @@ flowchart TB
 
   <p>The headline finding wasn't in the infrastructure at all. It was in the API process. The single biggest latency lever was request batching. The FastAPI service collects incoming requests in an async queue, and a worker drains up to 16 of them every 10 milliseconds into one forward pass, resolving each caller's future individually. Transformers are throughput machines. Feeding them one query at a time wastes almost everything they're good at. Batching tripled sustainable throughput on identical hardware, and the 10ms collection window costs less latency than it saves by an order of magnitude.</p>
 
+  <div class="playground-callout">
+    <p class="pc-label">Try it</p>
+    <p><strong><a href="../../../playground/batching-sim.html">Request Batching Simulator</a></strong> — The batching trade-off above is interactive here. Tune arrival rate, batch size, and collection window, then watch p50/p99 latency and throughput respond in real time — the same dynamics that tripled throughput on this serving stack.</p>
+  </div>
+
   <p>The counterintuitive runner-up: <code>torch.set_num_threads(1)</code>. PyTorch's default eagerness to parallelize a single small inference across cores meant threads fighting each other under concurrent load. One thread per worker process, more worker replicas. Smoother latency, better P99, less CPU. We found both of these <em>only</em> because the load tests made the bottlenecks visible. Neither showed up under polite manual testing.</p>
 
   <p>Observability closed the loop between test sessions. The API exports a Prometheus histogram, <code>prediction_latency_seconds</code>, with buckets chosen around the SLA: 10ms up through 1s, dense near 100 to 300ms where the truth lives. Grafana reads it. The point of matching bucket edges to the SLA is simple. A histogram with generic buckets can tell you the P90 was "somewhere between 100 and 500ms", which is a shrug wearing a chart. Ours could answer the 150ms question directly. Next to latency sat a drift monitor comparing live prediction distributions against training via KL divergence, because an API that's fast and confidently wrong passes every load test you'll ever run.</p>

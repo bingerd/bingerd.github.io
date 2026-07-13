@@ -77,6 +77,11 @@ flowchart TB
 
   <p>My favorite bug of the project lived in that blending formula. FTS5's BM25 rank is negative-is-better and unbounded. Cosine similarity sits politely in [0,1]. My first normalization was wrong in a way that made <em>worse</em> keyword matches score <em>higher</em>. And hybrid search mostly still worked, because the semantic side papered over it. That's the sneaky thing about ranking bugs. They don't crash. They just quietly serve you the second-best answer. The fix normalizes rank as <code>|rank| / (1 + |rank|)</code> to land keyword scores in the same [0,1] space as the vectors. The lesson I framed on the wall: before blending two scores, prove they share a scale. With a test, not a comment.</p>
 
+  <div class="playground-callout">
+    <p class="pc-label">Try it</p>
+    <p><strong><a href="../../../playground/hybrid-search.html">Hybrid Search Toy</a></strong> — The score-normalization bug described above is reproducible in this playground. Drag the blend slider between BM25 keyword search and trigram-based semantic matching over the posts on this site, and see where each mode wins and where it quietly serves the second-best answer.</p>
+  </div>
+
   <h2>Everything downstream depends on ingestion</h2>
 
   <p>None of the retrieval machinery works unless ingestion did its job, so a single <code>DocumentIngestor</code> owns the whole path. Parse (Markdown, PDF with OCR fallback via Vision, Obsidian vaults, calendar, contacts, health data), chunk, embed in batches, extract entities, and commit. One write transaction per document per store, so a crash mid-import never leaves a document half-searchable.</p>
@@ -94,6 +99,11 @@ flowchart TB
   <p>Retrieved context gets that hard ~1,024-token sub-budget. Top five excerpts, each capped at 500 characters, deduplicated when chunks overlap, source attribution preserved so citations survive into the answer. Conversation history fills newest-first until the budget objects, which is smarter than a fixed "last 10 messages" because it keeps whole recent exchanges intact when they're long and reaches further back when they're short.</p>
 
   <p>Even sampling parameters split by purpose. Chat runs warm (topK 40, temperature 0.7). The agentic path runs cold (topK 20, temperature 0.3). "Phrase this pleasantly" and "choose the correct tool" are different jobs, and only one of them benefits from creativity.</p>
+
+  <div class="playground-callout">
+    <p class="pc-label">Try it</p>
+    <p><strong><a href="../../../playground/token-budget.html">Token Budget Visualizer</a></strong> — This demo models the exact context layout Atlas uses. Adjust the conversation history and retrieval sliders, paste in your own text, and watch the packer evict oldest turns first when the 8,192-token ceiling fills up.</p>
+  </div>
 
   <h2>The KV cache is sacred</h2>
 

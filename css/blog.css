@@ -222,6 +222,27 @@ figcaption {
   opacity: 0.6;
 }
 
+.playground-callout {
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+  padding: 18px 22px;
+  margin: 2.5rem 0;
+  background: rgba(217,164,255,0.05);
+}
+[data-theme="light"] .playground-callout {
+  background: rgba(122,60,255,0.05);
+}
+.playground-callout .pc-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  margin-bottom: 6px;
+  margin-top: 0;
+}
+.playground-callout p:last-child { margin-bottom: 0; }
+.playground-callout a { color: var(--accent); font-weight: 600; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .post-nav a:hover { transform: none; }
