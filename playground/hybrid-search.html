@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hybrid Search Toy — Bing Tan</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Real BM25 plus toy semantic matching over this site's own blog posts, with a blend slider. A miniature of the Atlas retrieval pipeline, in your browser." />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+<link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../css/blog.css" />
+<style>
+  .searchbox {
+    width:100%; box-sizing:border-box; padding:14px 18px; font-size:1rem;
+    background:rgba(128,128,128,0.1); color:var(--fg);
+    border:1px solid rgba(128,128,128,0.4); border-radius:999px; font-family:inherit;
+  }
+  .searchbox:focus { outline:none; border-color:var(--accent); }
+  .controls { display:flex; gap:12px; align-items:center; margin:16px 0; font-size:0.85rem; opacity:0.9; flex-wrap:wrap; }
+  .controls input[type=range] { accent-color:var(--accent); width:220px; }
+  .result { padding:14px 16px; border:1px solid rgba(128,128,128,0.25); border-radius:12px; margin-bottom:12px; }
+  .result h3 { margin:0 0 6px; font-size:0.95rem; }
+  .result h3 a { color:var(--accent); text-decoration:none; }
+  .result p { margin:0 0 8px; font-size:0.85rem; opacity:0.75; line-height:1.5; }
+  .scorebars { display:grid; grid-template-columns:70px 1fr 60px; gap:4px 10px; font-family:'SF Mono','Fira Code',monospace; font-size:0.7rem; align-items:center; }
+  .scorebars .bar { height:6px; border-radius:3px; background:rgba(128,128,128,0.15); overflow:hidden; }
+  .scorebars .bar i { display:block; height:100%; }
+  .bar-bm i { background:#0984e3; }
+  .bar-sem i { background:#00b894; }
+  .bar-mix i { background:var(--accent); }
+  .empty { opacity:0.6; font-size:0.9rem; font-style:italic; }
+</style>
+</head>
+<body data-theme="dark">
+<script src="../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../index.html">Home</a></li>
+    <li><a href="../index.html#playground">Playground</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Hybrid Search Toy</h1>
+  <p><em>Two search engines arguing about relevance, and a slider to referee.</em></p>
+
+  <p>Keyword search and semantic search fail in opposite directions. BM25, the ranking function behind most text search since the 90s, is precise but literal: it finds documents containing your exact words, weighted by how rare those words are, and shrugs at synonyms and typos. Semantic matching is forgiving but fuzzy: it catches "k8s" when you meant "kubernetes", and occasionally decides two unrelated things are soulmates. Production systems, including my Atlas app, run both and blend the scores.</p>
+
+  <p>This page does the same over the actual paragraphs of this site's blog posts. The BM25 is real (k1=1.5, b=0.75, honest inverse document frequency). The "semantic" side is a confessed toy: character-trigram cosine similarity, which knows nothing about meaning but handles typos and partial words the way you'd hope. Try searching <strong>kilswitch</strong> with the typo, then drag the slider fully to keyword-only and watch the result vanish. That's the whole argument for hybrid, in one slider.</p>
+
+  <input class="searchbox" id="q" type="search" placeholder="Search the blog… try: killswitch, token budget, terraform, receipts" />
+  <div class="controls">
+    <span>keyword (BM25)</span>
+    <input type="range" id="blend" min="0" max="100" step="5" value="60">
+    <span>semantic-ish</span>
+    <span id="blendVal" style="font-family:monospace;">0.4 / 0.6</span>
+  </div>
+  <div id="results"></div>
+
+  <p style="margin-top:32px;">In Atlas the semantic half is real sentence embeddings and the blend is <code>0.4 × bm25 + 0.6 × semantic</code>, running in under a millisecond on a phone. And yes, the score normalization here is tested, because I once shipped the bug where worse keyword matches ranked higher: <a href="../docs/blog/2026/atlas-context-engineering.html">Fitting a Second Brain Into 8,192 Tokens →</a></p>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script>
+(function () {
+  // Corpus: condensed real paragraphs from the blog posts.
+  var DOCS = [
+    { t: 'The Minecraft Server That Kills Itself', u: '../docs/blog/2026/minecraft-server-killswitch.html', x: 'A bash killswitch polls the server over RCON every 30 seconds, counts players, and after an hour of silence saves the world and stops its own VM with gcloud. The disk persists, the compute evaporates.' },
+    { t: 'The Minecraft Server That Kills Itself', u: '../docs/blog/2026/minecraft-server-killswitch.html', x: 'Preemptible machines are 60 to 70 percent cheaper because Google can reclaim them anytime. For a server designed to shut itself down anyway, preemption is just the killswitch firing early.' },
+    { t: 'The Minecraft Server That Kills Itself', u: '../docs/blog/2026/minecraft-server-killswitch.html', x: 'A Cloud Run dashboard is the doorbell: /start needs no auth because the worst a stranger can do is cost a few cents, while /stop and the RCON proxy sit behind a bearer token.' },
+    { t: 'Fitting a Second Brain Into 8,192 Tokens', u: '../docs/blog/2026/atlas-context-engineering.html', x: 'Interactive search never touches the LLM. SQLite FTS5 answers keyword queries in under half a millisecond, k-means clustered vectors answer semantic ones, and a regex date parser handles calendar questions without hallucinating meetings.' },
+    { t: 'Fitting a Second Brain Into 8,192 Tokens', u: '../docs/blog/2026/atlas-context-engineering.html', x: 'The token budget: a heuristic of four UTF-8 bytes per token makes packing decisions, retrieval gets a 1024 token sub-budget, and conversation history fills newest-first until the window objects.' },
+    { t: 'Fitting a Second Brain Into 8,192 Tokens', u: '../docs/blog/2026/atlas-context-engineering.html', x: 'Privacy is enforced by a test that scans every source file and fails the build if networking code appears outside the single sanctioned model download function.' },
+    { t: 'Fitting a Second Brain Into 8,192 Tokens', u: '../docs/blog/2026/atlas-context-engineering.html', x: 'My favorite bug: BM25 rank is negative-is-better and unbounded, cosine similarity lives in zero to one. Blending them without normalizing made worse keyword matches score higher. Ranking bugs do not crash, they quietly serve the second-best answer.' },
+    { t: 'Terraform, GKE, and the 150-Millisecond Question', u: '../docs/blog/2026/terraform-load-testing.html', x: 'Request batching was the single biggest latency lever: an async queue drains up to 16 requests every 10 milliseconds into one forward pass. Batching tripled sustainable throughput on identical hardware.' },
+    { t: 'Terraform, GKE, and the 150-Millisecond Question', u: '../docs/blog/2026/terraform-load-testing.html', x: 'Three Terraform stacks with separate state: training, serving, stress-test. Different lifecycles means destroy stays boring. terraform destroy is a cost-control habit, not an emergency procedure.' },
+    { t: 'Terraform, GKE, and the 150-Millisecond Question', u: '../docs/blog/2026/terraform-load-testing.html', x: 'The load generator is a distributed system too. A second GKE cluster runs autoscaled Locust workers, because a single VM saturates before the target does and measures the wrong bottleneck.' },
+    { t: 'One Encoder, Three Jobs', u: '../docs/blog/2026/intent-classifier-training.html', x: 'The system model runs shared BERT layers 0 through 9 once, then branches into three task heads: buying intent, named entities with a CRF, and product category. Roughly 2.5 times faster than three separate models.' },
+    { t: 'One Encoder, Three Jobs', u: '../docs/blog/2026/intent-classifier-training.html', x: 'Synthetic training data looked great on synthetic eval sets, then eight F1 points evaporated on real queries. If your eval set is synthetic you have an optimistic simulation, not an evaluation.' },
+    { t: 'Teaching an AI Agent to Read Receipts', u: '../docs/blog/2026/receipt-agent.html', x: 'The submit gate is code, not prompt: a before-tool callback refuses to run the finance submission unless the user explicitly confirmed. The model proposes, deterministic code disposes.' },
+    { t: 'Teaching an AI Agent to Read Receipts', u: '../docs/blog/2026/receipt-agent.html', x: 'Twenty-five scripted conversations form the evalset: the over-limit dinner that should be flagged, the personal subscription that should be declined, the stale receipt. Graded by a judge model that is deliberately not the agent.' },
+    { t: 'Teaching an AI Agent to Read Receipts', u: '../docs/blog/2026/receipt-agent.html', x: 'VCR-style cassettes record LLM interactions once and replay them deterministically in CI, keyed by request hash. Fast tests run without an API key and without flakiness.' },
+    { t: 'I Built a 2-Day Course on AI Agents', u: '../docs/blog/2026/agent-course.html', x: 'The eval harness runs every model-graded case three times and takes a majority vote. Score differences under 0.3 are ties. If your eval cannot survive being run twice, you do not have an eval.' },
+    { t: 'I Built a 2-Day Course on AI Agents', u: '../docs/blog/2026/agent-course.html', x: 'Classroom quota math: fifteen students running A/B comparisons launch a hundred-plus requests each in the same five minutes. The free tier gives 15 requests per minute. The classroom needs two thousand.' },
+    { t: 'My Home Runs on Git Push', u: '../docs/blog/2026/home-cluster-gitops.html', x: 'Argo CD with prune and selfHeal makes Git authoritative: delete a manifest and the resource disappears, edit the cluster by hand and it reverts within minutes. The repo cannot lie about what is running.' },
+    { t: 'My Home Runs on Git Push', u: '../docs/blog/2026/home-cluster-gitops.html', x: 'k3s on an Intel NUC with 32 GB of RAM runs the house: Home Assistant, a Minecraft server behind mc-router, Firefly III for finances, and a Cloudflare tunnel so no router port ever opens.' },
+    { t: 'Home Assistant on Kubernetes', u: '../docs/blog/2026/home-assistant-k8s.html', x: 'hostNetwork true lets the pod hear mDNS and SSDP multicast from smart devices, and ClusterFirstWithHostNet restores cluster DNS. A busybox init container seeds configuration and appends the Traefik trusted proxy block.' },
+    { t: 'Home Assistant on Kubernetes', u: '../docs/blog/2026/home-assistant-k8s.html', x: 'Recreate strategy instead of rolling update, because two Home Assistant processes fighting over one SQLite file is corruption with extra steps.' },
+    { t: 'Zero to Deployed on a €0 Bill', u: '../docs/blog/2026/teaching-cloud-tu-delft.html', x: 'Workload Identity Federation means students never touch a service-account key: the pipeline exchanges a short-lived OIDC token for cloud access. Long-lived credentials in CI is how universities end up mining someone else’s cryptocurrency.' },
+    { t: 'Zero to Deployed on a €0 Bill', u: '../docs/blog/2026/teaching-cloud-tu-delft.html', x: 'Cloud Run scale-to-zero is the pedagogically honest choice: an idle student service costs actual zero, and thirty forgotten course deployments in December cost the same.' },
+    { t: 'The Day I Learned Why Webhooks Need HMAC', u: '../docs/blog/2025/webhook-hmac.html', x: 'A static token proves the sender knows a secret and nothing about the message. HMAC signs method, URL, body and timestamp, so forgery breaks the signature and replays go stale within the five-minute window.' },
+    { t: 'The Day I Learned Why Webhooks Need HMAC', u: '../docs/blog/2025/webhook-hmac.html', x: 'compare_digest exists because normal string comparison returns early at the first mismatch, and that timing difference lets an attacker reconstruct a valid signature byte by byte.' }
+  ];
+
+  // ---- BM25 ----
+  function tokenize(s) { return s.toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, ' ').split(' ').filter(Boolean); }
+  var docTokens = DOCS.map(function (d) { return tokenize(d.t + ' ' + d.x); });
+  var avgLen = docTokens.reduce(function (a, t) { return a + t.length; }, 0) / docTokens.length;
+  var df = {};
+  docTokens.forEach(function (toks) {
+    var seen = {};
+    toks.forEach(function (w) { if (!seen[w]) { df[w] = (df[w] || 0) + 1; seen[w] = 1; } });
+  });
+  var N = DOCS.length;
+  var K1 = 1.5, B = 0.75;
+
+  function bm25(queryToks, idx) {
+    var toks = docTokens[idx];
+    var tf = {};
+    toks.forEach(function (w) { tf[w] = (tf[w] || 0) + 1; });
+    var score = 0;
+    queryToks.forEach(function (q) {
+      if (!tf[q]) return;
+      var idf = Math.log(1 + (N - df[q] + 0.5) / (df[q] + 0.5));
+      score += idf * (tf[q] * (K1 + 1)) / (tf[q] + K1 * (1 - B + B * toks.length / avgLen));
+    });
+    return score;
+  }
+
+  // ---- toy semantic: character trigram cosine ----
+  function trigrams(s) {
+    var t = {}, str = ' ' + s.toLowerCase().replace(/\s+/g, ' ') + ' ';
+    for (var i = 0; i < str.length - 2; i++) {
+      var g = str.substr(i, 3);
+      t[g] = (t[g] || 0) + 1;
+    }
+    return t;
+  }
+  var docTris = DOCS.map(function (d) { return trigrams(d.t + ' ' + d.x); });
+  function cosine(a, b) {
+    var dot = 0, na = 0, nb = 0, k;
+    for (k in a) { na += a[k] * a[k]; if (b[k]) dot += a[k] * b[k]; }
+    for (k in b) nb += b[k] * b[k];
+    return na && nb ? dot / Math.sqrt(na * nb) : 0;
+  }
+
+  function search(query, semWeight) {
+    var qToks = tokenize(query);
+    var qTri = trigrams(query);
+    var raw = DOCS.map(function (d, i) {
+      return { i: i, bm: bm25(qToks, i), sem: cosine(qTri, docTris[i]) };
+    });
+    // normalize both to [0,1] over this result set — the lesson from the Atlas bug
+    var maxBm = Math.max.apply(null, raw.map(function (r) { return r.bm; })) || 1;
+    var maxSem = Math.max.apply(null, raw.map(function (r) { return r.sem; })) || 1;
+    raw.forEach(function (r) {
+      r.bmN = r.bm / maxBm;
+      r.semN = r.sem / maxSem;
+      r.mix = (1 - semWeight) * r.bmN + semWeight * r.semN;
+    });
+    return raw.filter(function (r) { return r.mix > 0.05; })
+      .sort(function (a, b) { return b.mix - a.mix; })
+      .slice(0, 6);
+  }
+
+  function bar(cls, v) {
+    return '<span>' + cls + '</span><span class="bar bar-' + cls + '"><i style="width:' + (v * 100).toFixed(0) + '%"></i></span><span>' + v.toFixed(2) + '</span>';
+  }
+
+  function render() {
+    var q = document.getElementById('q').value.trim();
+    var semWeight = parseInt(document.getElementById('blend').value, 10) / 100;
+    document.getElementById('blendVal').textContent = (1 - semWeight).toFixed(1) + ' / ' + semWeight.toFixed(1);
+    var out = document.getElementById('results');
+    if (q.length < 2) { out.innerHTML = '<p class="empty">Results appear as you type.</p>'; return; }
+    var hits = search(q, semWeight);
+    if (!hits.length) { out.innerHTML = '<p class="empty">Nothing matched. Even the trigrams gave up.</p>'; return; }
+    out.innerHTML = hits.map(function (r) {
+      var d = DOCS[r.i];
+      return '<div class="result"><h3><a href="' + d.u + '">' + d.t + '</a></h3><p>' + d.x + '</p>' +
+        '<div class="scorebars">' + bar('bm', r.bmN) + bar('sem', r.semN) + bar('mix', r.mix) + '</div></div>';
+    }).join('');
+  }
+
+  document.getElementById('q').addEventListener('input', render);
+  document.getElementById('blend').addEventListener('input', render);
+  render();
+})();
+</script>
+</body>
+</html>

@@ -12,24 +12,6 @@ if (gridB) {
   });
 }
 
-/* Show more endpoints toggle */
-function toggleMoreEndpoints() {
-  var more = document.getElementById('moreEndpoints');
-  var btn = document.getElementById('showMoreBtn');
-  if (more && btn) {
-    var isVisible = more.classList.contains('visible');
-    if (isVisible) {
-      more.classList.remove('visible');
-      btn.textContent = 'Show more endpoints';
-    } else {
-      more.classList.add('visible');
-      btn.textContent = 'Show fewer endpoints';
-    }
-  }
-}
-// expose for onclick
-window.toggleMoreEndpoints = toggleMoreEndpoints;
-
 /* Uptime counter */
 var startTime = Date.now();
 function updateUptime() {

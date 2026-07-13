@@ -294,141 +294,41 @@
     <div class="fun-section">
       <div class="fun-header">
         <h2 class="section-title">ML Playground</h2>
-        <p>Every ML system needs an API. Here are some endpoints I'd never put in production.</p>
+        <p>Real algorithms, running in your browser. No servers, no API keys, no tricks. View source welcome.</p>
       </div>
 
       <div class="experiments-grid">
+        <a href="playground/neural-trainer.html" class="experiment-card">
+          <span class="experiment-icon">&#9673;</span>
+          <h3>Neural Trainer</h3>
+          <p>Watch a tiny neural network learn, live. Hand-written backprop, no libraries.</p>
+        </a>
+        <a href="playground/gradient-descent.html" class="experiment-card">
+          <span class="experiment-icon">&#8600;</span>
+          <h3>Gradient Descent</h3>
+          <p>Drop a ball on a loss surface. Pick a learning rate. Converge or explode.</p>
+        </a>
+        <a href="playground/batching-sim.html" class="experiment-card">
+          <span class="experiment-icon">&#9646;&#9646;</span>
+          <h3>Batching Simulator</h3>
+          <p>Why batching tripled our throughput: tune RPS, batch size and window, watch p99 move.</p>
+        </a>
+        <a href="playground/token-budget.html" class="experiment-card">
+          <span class="experiment-icon">&#9636;</span>
+          <h3>Token Budget</h3>
+          <p>Fill an 8,192-token context window and watch what gets evicted first.</p>
+        </a>
+        <a href="playground/hybrid-search.html" class="experiment-card">
+          <span class="experiment-icon">&#8981;</span>
+          <h3>Hybrid Search</h3>
+          <p>Real BM25 versus toy semantics over this site's own blog posts. Blend them yourself.</p>
+        </a>
         <a href="games/backprop-runner-canyon.html" class="experiment-card">
           <span class="experiment-icon">&#9654;</span>
           <h3>Backprop Runner</h3>
-          <p>3D endless runner where you dodge gradient collapse</p>
-        </a>
-        <a href="animations/neural-field-particles.html" class="experiment-card">
-          <span class="experiment-icon">&#10022;</span>
-          <h3>Neural Field Particles</h3>
-          <p>8,000 particles advected through a continuous vector field</p>
+          <p>3D endless runner where you dodge gradient collapse.</p>
         </a>
       </div>
-
-      <h3 class="section-label">Prediction Endpoints</h3>
-
-      <div class="endpoint-cards" id="endpointCards">
-
-        <div class="endpoint-card">
-          <h3>/predict/shorts</h3>
-          <p>Will you wear shorts today? Based on weather + thermal comfort.</p>
-          <label>Temperature (°C) <input type="number" id="shorts-temp" placeholder="23"></label>
-          <label>Humidity (%) <input type="number" id="shorts-humidity" placeholder="40"></label>
-          <label>Wind (m/s) <input type="number" id="shorts-wind" placeholder="2"></label>
-          <label>Condition
-            <select id="shorts-condition">
-              <option>Sunny</option><option>Cloudy</option><option>Rainy</option><option>Storm</option><option>Snow</option>
-            </select>
-          </label>
-          <button onclick="runPrediction('shorts')">Predict</button>
-          <pre id="shorts-output"></pre>
-        </div>
-
-        <div class="endpoint-card">
-          <h3>/predict/coffee-need</h3>
-          <p>Do you need coffee right now?</p>
-          <label>Heart rate <input type="number" id="coffee-hr" placeholder="75"></label>
-          <label>Hours sleep <input type="number" id="coffee-sleep" placeholder="6"></label>
-          <label>Mood
-            <select id="coffee-mood"><option>Happy</option><option>Tired</option><option>Stressed</option><option>Neutral</option></select>
-          </label>
-          <label>Time of day <input type="number" id="coffee-hour" placeholder="14"></label>
-          <button onclick="runPrediction('coffee')">Predict</button>
-          <pre id="coffee-output"></pre>
-        </div>
-
-        <div class="endpoint-card">
-          <h3>/predict/LLM-sanity</h3>
-          <p>Is your LLM about to hallucinate?</p>
-          <label>Prompt length <input type="number" id="llm-prompt" placeholder="120"></label>
-          <label>Temperature <input type="number" id="llm-temp" placeholder="0.7" step="0.1"></label>
-          <label>Token count <input type="number" id="llm-tokens" placeholder="512"></label>
-          <button onclick="runPrediction('llm')">Predict</button>
-          <pre id="llm-output"></pre>
-        </div>
-
-      </div>
-
-      <div class="endpoint-cards endpoint-cards-hidden" id="moreEndpoints">
-
-        <div class="endpoint-card">
-          <h3>/meme-generator</h3>
-          <p>Generate a random ML meme for your stress level.</p>
-          <label>Stress level (1-10) <input type="number" id="meme-stress" placeholder="5"></label>
-          <label>Framework <input type="text" id="meme-framework" placeholder="PyTorch"></label>
-          <button onclick="runPrediction('meme')">Generate Meme</button>
-          <pre id="meme-output"></pre>
-        </div>
-
-        <div class="endpoint-card">
-          <h3>/predict/work-from-home-outfit</h3>
-          <p>Perfect remote work outfit based on your day.</p>
-          <label>Zoom calls today <input type="number" id="outfit-zoom" placeholder="2"></label>
-          <label>Coffee intake (cups) <input type="number" id="outfit-coffee" placeholder="1"></label>
-          <label>Weather <input type="text" id="outfit-weather" placeholder="Sunny"></label>
-          <button onclick="runPrediction('outfit')">Predict</button>
-          <pre id="outfit-output"></pre>
-        </div>
-
-        <div class="endpoint-card">
-          <h3>/predict/motivation</h3>
-          <p>How motivated will you be today?</p>
-          <label>Day of week <input type="text" id="motivation-day" placeholder="Monday"></label>
-          <label>Hours slept <input type="number" id="motivation-sleep" placeholder="7"></label>
-          <label>Calendar meetings <input type="number" id="motivation-meetings" placeholder="3"></label>
-          <button onclick="runPrediction('motivation')">Predict</button>
-          <pre id="motivation-output"></pre>
-        </div>
-
-        <div class="endpoint-card">
-          <h3>/predict/pizza-topping</h3>
-          <p>Optimal pizza topping combo based on your mood and time.</p>
-          <label>Mood <input type="text" id="pizza-mood" placeholder="Happy"></label>
-          <label>Time of day <input type="number" id="pizza-hour" placeholder="19"></label>
-          <label>Weather <input type="text" id="pizza-weather" placeholder="Rainy"></label>
-          <button onclick="runPrediction('pizza')">Predict</button>
-          <pre id="pizza-output"></pre>
-        </div>
-
-        <div class="endpoint-card">
-          <h3>/predict/pet-reaction</h3>
-          <p>Predict your pet's reaction to your new haircut.</p>
-          <label>Pet type <input type="text" id="pet-type" placeholder="Cat"></label>
-          <label>Haircut length <input type="text" id="pet-haircut" placeholder="Short"></label>
-          <label>Hair color <input type="text" id="pet-color" placeholder="Brown"></label>
-          <button onclick="runPrediction('pet')">Predict</button>
-          <pre id="pet-output"></pre>
-        </div>
-
-        <div class="endpoint-card">
-          <h3>/predict/marathon-performance</h3>
-          <p>Predict your marathon finish time (fun version).</p>
-          <label>Distance (km) <input type="number" id="marathon-distance" placeholder="10"></label>
-          <label>Playlist type <input type="text" id="marathon-playlist" placeholder="Beyoncé"></label>
-          <label>Hydration level <input type="number" id="marathon-hydration" placeholder="3"></label>
-          <label>Weather <input type="text" id="marathon-weather" placeholder="Sunny"></label>
-          <button onclick="runPrediction('marathon')">Predict</button>
-          <pre id="marathon-output"></pre>
-        </div>
-
-        <div class="endpoint-card">
-          <h3>/predict/perf-mode-chaos</h3>
-          <p>How chaotic will Perf Mode get today?</p>
-          <label>Coffee level (cups) <input type="number" id="chaos-coffee" placeholder="2"></label>
-          <label>Last commit hour <input type="number" id="chaos-commit" placeholder="23"></label>
-          <label>Ambient music <input type="text" id="chaos-music" placeholder="Lo-fi"></label>
-          <button onclick="runPrediction('chaos')">Predict</button>
-          <pre id="chaos-output"></pre>
-        </div>
-
-      </div>
-
-      <button class="show-more-btn" id="showMoreBtn" onclick="toggleMoreEndpoints()">Show more endpoints</button>
 
     </div>
   </div>
@@ -477,7 +377,6 @@
   <p style="margin-top: 8px;"><span class="egg-hint">This site contains 7 easter eggs. Type /help if you're curious. <span class="egg-counter" id="eggCounter"></span></span></p>
 </footer>
 
-<script src="js/predictions.js"></script>
 <script src="js/blog-data.js"></script>
 <script src="js/main.js"></script>
 <script src="js/easter-eggs.js"></script>

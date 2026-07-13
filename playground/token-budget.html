@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Token Budget Visualizer — Bing Tan</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Fill an 8,192-token context window and watch what gets evicted: an interactive visualization of on-device context packing, from the Atlas app." />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+<link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../css/blog.css" />
+<style>
+  textarea {
+    width:100%; min-height:120px; box-sizing:border-box;
+    background:rgba(128,128,128,0.1); color:var(--fg);
+    border:1px solid rgba(128,128,128,0.4); border-radius:12px; padding:14px;
+    font-family:inherit; font-size:0.95rem;
+  }
+  textarea:focus { outline:none; border-color:var(--accent); }
+  .budget-bar { display:flex; height:44px; border-radius:10px; overflow:hidden; margin:18px 0 6px; border:1px solid rgba(128,128,128,0.35); }
+  .budget-bar div { transition:width 0.3s; min-width:0; }
+  .seg-sys { background:#7a5cff; }
+  .seg-hist { background:#00b894; }
+  .seg-ret { background:#0984e3; }
+  .seg-user { background:#d9a4ff; }
+  .seg-free { background:rgba(128,128,128,0.12); }
+  .legend { display:flex; gap:18px; flex-wrap:wrap; font-size:0.8rem; opacity:0.85; font-family:'SF Mono','Fira Code',monospace; }
+  .legend span::before { content:"■ "; }
+  .l-sys::before { color:#7a5cff; } .l-hist::before { color:#00b894; }
+  .l-ret::before { color:#0984e3; } .l-user::before { color:#d9a4ff; }
+  .l-free::before { color:rgba(128,128,128,0.5); }
+  .controls { display:flex; gap:20px; flex-wrap:wrap; align-items:center; margin:16px 0; font-size:0.85rem; }
+  .controls input[type=range] { accent-color: var(--accent); }
+  .history-list { font-size:0.85rem; margin-top:16px; }
+  .history-list li { margin-bottom:4px; }
+  .history-list li.evicted { opacity:0.35; text-decoration:line-through; }
+  .verdict { font-family:'SF Mono','Fira Code',monospace; font-size:0.9rem; margin-top:10px; min-height:1.5em; }
+  .verdict.over { color:#ff5c5c; }
+</style>
+</head>
+<body data-theme="dark">
+<script src="../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../index.html">Home</a></li>
+    <li><a href="../index.html#playground">Playground</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Token Budget Visualizer</h1>
+  <p><em>8,192 tokens. Everything must fit. Something has to give.</em></p>
+
+  <p>When I built <a href="../docs/blog/2026/atlas-context-engineering.html">Atlas</a>, an AI that runs entirely on a phone, the context window stopped being an abstraction and became a housing crisis. The system prompt needs a room. The retrieved documents need a room. The conversation history wants the whole floor. And your new message just walked in the door. Below is the exact negotiation, live.</p>
+
+  <p>Type or paste something into the box. Your text claims space using the same heuristic Atlas uses for packing decisions: roughly one token per four UTF-8 bytes, deliberately over-estimated (better to under-fill than overflow). Then drag the history slider up and watch the eviction policy work: when the window overruns, the <em>oldest</em> conversation turns get pushed out first, one by one, while recent exchanges survive. That newest-first packing is smarter than a fixed "keep last 10 messages" because it adapts to how long the messages actually are.</p>
+
+  <div class="controls">
+    <label>Conversation history: <span id="histVal">8</span> messages
+      <input type="range" id="histSlider" min="0" max="40" step="1" value="8"></label>
+    <label>Retrieved context: <span id="retVal">1024</span> tokens
+      <input type="range" id="retSlider" min="0" max="2048" step="128" value="1024"></label>
+  </div>
+
+  <textarea id="userText" placeholder="Type or paste your message here. Try pasting a whole article to see the eviction cascade..."></textarea>
+
+  <div class="budget-bar" id="bar" aria-label="Context window usage bar">
+    <div class="seg-sys" id="segSys"></div>
+    <div class="seg-hist" id="segHist"></div>
+    <div class="seg-ret" id="segRet"></div>
+    <div class="seg-user" id="segUser"></div>
+    <div class="seg-free" id="segFree"></div>
+  </div>
+  <div class="legend">
+    <span class="l-sys">system <span id="tSys">600</span></span>
+    <span class="l-hist">history <span id="tHist">0</span></span>
+    <span class="l-ret">retrieval <span id="tRet">1024</span></span>
+    <span class="l-user">your message <span id="tUser">0</span></span>
+    <span class="l-free">free <span id="tFree">0</span></span>
+  </div>
+  <div class="verdict" id="verdict"></div>
+
+  <ol class="history-list" id="histList" reversed></ol>
+
+  <p style="margin-top:32px;">In Atlas this happens before every single model call, in microseconds, with a test suite checking the estimator never drifts from the real tokenizer. The full story: <a href="../docs/blog/2026/atlas-context-engineering.html">Fitting a Second Brain Into 8,192 Tokens →</a></p>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script>
+(function () {
+  var BUDGET = 8192;
+  var SYS = 600; // fixed system prompt
+
+  // fake history messages with plausible token sizes (older = earlier index)
+  var HIST_MSGS = [];
+  var seeds = [95, 210, 60, 340, 120, 85, 400, 150, 75, 260, 110, 90, 310, 130, 70, 180, 220, 95, 55, 280,
+               140, 100, 330, 160, 80, 240, 115, 65, 300, 125, 190, 105, 250, 88, 145, 175, 230, 98, 135, 205];
+  for (var i = 0; i < 40; i++) {
+    HIST_MSGS.push({ label: (i % 2 === 0 ? 'you: ' : 'atlas: ') + 'message #' + (i + 1), tokens: seeds[i] });
+  }
+
+  function estimateTokens(text) {
+    // Atlas heuristic: ~4 UTF-8 bytes per token, over-estimating
+    var bytes = new TextEncoder().encode(text).length;
+    return Math.ceil(bytes / 4);
+  }
+
+  function update() {
+    var histCount = parseInt(document.getElementById('histSlider').value, 10);
+    var ret = parseInt(document.getElementById('retSlider').value, 10);
+    var user = estimateTokens(document.getElementById('userText').value);
+    document.getElementById('histVal').textContent = histCount;
+    document.getElementById('retVal').textContent = ret;
+
+    // newest-first packing: take messages from the end (newest) while they fit
+    var available = BUDGET - SYS - ret - user;
+    var msgs = HIST_MSGS.slice(0, histCount); // chronological, oldest first
+    var kept = [], used = 0;
+    for (var i = msgs.length - 1; i >= 0; i--) { // newest first
+      if (used + msgs[i].tokens <= Math.max(0, available)) {
+        used += msgs[i].tokens;
+        kept.unshift(i);
+      } else break; // stop at first message that doesn't fit (keep exchanges contiguous)
+    }
+    var hist = used;
+    var evicted = msgs.length - kept.length;
+
+    // retrieval gets squeezed only if even zero history doesn't fit
+    var retShown = ret;
+    var total = SYS + hist + retShown + user;
+    var squeezedRet = false;
+    if (total > BUDGET) {
+      retShown = Math.max(0, BUDGET - SYS - hist - user);
+      squeezedRet = true;
+      total = SYS + hist + retShown + user;
+    }
+    var free = Math.max(0, BUDGET - total);
+    var over = SYS + user > BUDGET - 0; // user text alone blows the budget
+
+    function setSeg(id, tokens) {
+      document.getElementById(id).style.width = (tokens / BUDGET * 100) + '%';
+    }
+    setSeg('segSys', SYS);
+    setSeg('segHist', hist);
+    setSeg('segRet', retShown);
+    setSeg('segUser', Math.min(user, BUDGET - SYS));
+    setSeg('segFree', free);
+
+    document.getElementById('tSys').textContent = SYS;
+    document.getElementById('tHist').textContent = hist;
+    document.getElementById('tRet').textContent = retShown;
+    document.getElementById('tUser').textContent = user;
+    document.getElementById('tFree').textContent = free;
+
+    var verdict = document.getElementById('verdict');
+    if (over) {
+      verdict.textContent = 'OVERFLOW: your message alone exceeds the window. Even eviction can’t save you — this is where chunking starts.';
+      verdict.className = 'verdict over';
+    } else if (squeezedRet) {
+      verdict.textContent = 'All history evicted AND retrieval squeezed to ' + retShown + ' tokens. The model now knows almost nothing except your message.';
+      verdict.className = 'verdict over';
+    } else if (evicted > 0) {
+      verdict.textContent = 'EVICTED ' + evicted + ' oldest message' + (evicted > 1 ? 's' : '') + ' to make room. The model just forgot how this conversation started.';
+      verdict.className = 'verdict over';
+    } else {
+      verdict.textContent = 'Everything fits. ' + free + ' tokens to spare.';
+      verdict.className = 'verdict';
+    }
+
+    // history list
+    var list = document.getElementById('histList');
+    list.innerHTML = '';
+    for (var j = msgs.length - 1; j >= 0; j--) {
+      var li = document.createElement('li');
+      li.textContent = msgs[j].label + ' (' + msgs[j].tokens + ' tok)';
+      if (kept.indexOf(j) === -1) li.className = 'evicted';
+      list.appendChild(li);
+    }
+  }
+
+  document.getElementById('histSlider').addEventListener('input', update);
+  document.getElementById('retSlider').addEventListener('input', update);
+  document.getElementById('userText').addEventListener('input', update);
+  update();
+})();
+</script>
+</body>
+</html>

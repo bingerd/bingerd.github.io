@@ -22,10 +22,18 @@ const blogFiles = [
   'docs/blog/2026/atlas-context-engineering.html'
 ];
 
+const playgroundFiles = [
+  'playground/neural-trainer.html',
+  'playground/gradient-descent.html',
+  'playground/batching-sim.html',
+  'playground/token-budget.html',
+  'playground/hybrid-search.html'
+];
+
 const htmlFiles = [
   'index.html',
   'games/backprop-runner-canyon.html',
-  'animations/neural-field-particles.html',
+  ...playgroundFiles,
   ...blogFiles
 ];
 
@@ -105,8 +113,21 @@ describe('blog posts load their enhancement scripts', () => {
   }
 });
 
+describe('playground pages link back to the playground', () => {
+  for (const file of playgroundFiles) {
+    it(`${file} links to index.html#playground`, () => {
+      const content = readFile(file);
+      assert.ok(content.includes('index.html#playground'), `${file} should link back to the playground section`);
+    });
+    it(`${file} uses the shared theme script`, () => {
+      const content = readFile(file);
+      assert.ok(content.includes('js/theme.js'), `${file} should load the shared theme script`);
+    });
+  }
+});
+
 describe('index.html references correct JS files', () => {
-  const jsFiles = ['js/predictions.js', 'js/main.js', 'js/background.js', 'js/easter-eggs.js'];
+  const jsFiles = ['js/blog-data.js', 'js/main.js', 'js/background.js', 'js/easter-eggs.js'];
 
   for (const jsFile of jsFiles) {
     it(`${jsFile} exists on disk`, () => {

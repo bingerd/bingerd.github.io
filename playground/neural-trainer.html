@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Neural Trainer — watch a network learn, live — Bing Tan</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="A tiny neural network (2-8-8-1) with hand-written backpropagation, training live in your browser on XOR, circles, or spirals. No libraries." />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+<link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../css/blog.css" />
+<style>
+  .demo-wrap { display:grid; grid-template-columns: 1fr; gap:20px; }
+  .canvas-row { display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start; }
+  canvas { border-radius:14px; border:1px solid rgba(128,128,128,0.3); max-width:100%; background:transparent; }
+  .controls { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin:12px 0 4px; }
+  .controls label { font-size:0.85rem; opacity:0.8; display:flex; align-items:center; gap:8px; }
+  .controls select, .controls input[type=range] { accent-color: var(--accent); }
+  .controls select { background:var(--bg); color:var(--fg); border:1px solid rgba(128,128,128,0.4); border-radius:8px; padding:6px 10px; }
+  .btn { padding:8px 22px; border-radius:999px; border:1px solid var(--accent); background:none; color:var(--fg); cursor:pointer; font-size:0.9rem; }
+  .btn.primary { background:var(--accent); color:var(--on-accent, #000); font-weight:600; }
+  .stats { font-family:'SF Mono','Fira Code',monospace; font-size:0.85rem; opacity:0.8; margin-top:8px; }
+</style>
+</head>
+<body data-theme="dark">
+<script src="../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../index.html">Home</a></li>
+    <li><a href="../index.html#playground">Playground</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Neural Trainer</h1>
+  <p><em>A 2→8→8→1 network, hand-written backprop, zero libraries. Running right now in your browser.</em></p>
+
+  <p>Every framework hides the same small miracle: a pile of random numbers becomes a decision-maker through nothing but repeated nudges. This page removes the framework so you can watch it happen. The network below has two inputs (the x and y of each dot), two hidden layers of eight tanh neurons, and one sigmoid output that says "orange or purple". The colored background is the network's current opinion about every point on the plane. At step zero, that opinion is noise.</p>
+
+  <p>Press train. The loss curve falls, the boundary stops being a blur, and somewhere around the spiral dataset you'll catch the network genuinely struggling before it figures out that the world is curved. That struggle is the honest part. Crank the learning rate too high and watch the boundary thrash instead of settle, which is the same failure you'd debug in production, just at a scale where you can see it.</p>
+
+  <div class="demo-wrap">
+    <div class="controls">
+      <label>Dataset
+        <select id="dataset">
+          <option value="xor">XOR blobs</option>
+          <option value="circles">Circles</option>
+          <option value="spiral" selected>Two spirals</option>
+        </select>
+      </label>
+      <label>Learning rate <input type="range" id="lr" min="-3" max="0.3" step="0.05" value="-0.7"> <span id="lrVal">0.2</span></label>
+      <button class="btn primary" id="trainBtn">Train</button>
+      <button class="btn" id="resetBtn">Reset</button>
+    </div>
+    <div class="canvas-row">
+      <canvas id="boundary" width="420" height="420" aria-label="Decision boundary visualization"></canvas>
+      <canvas id="lossCurve" width="320" height="200" aria-label="Training loss curve"></canvas>
+    </div>
+    <div class="stats"><span id="epochStat">epoch 0</span> · <span id="lossStat">loss —</span></div>
+  </div>
+
+  <p style="margin-top:32px;">The same mechanics run every model I've shipped, just with more zeros in the parameter count. If you want the production-scale version of this story, start with <a href="../docs/blog/2026/intent-classifier-training.html">One Encoder, Three Jobs →</a></p>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script>
+(function () {
+  // ---- tiny MLP: 2 -> 8 -> 8 -> 1, tanh / tanh / sigmoid, BCE loss ----
+  var SIZES = [2, 8, 8, 1];
+  var W, B;
+
+  function randn() { return (Math.random() + Math.random() + Math.random() - 1.5) * 1.2; }
+
+  function initNet() {
+    W = []; B = [];
+    for (var l = 0; l < SIZES.length - 1; l++) {
+      var w = [], b = [];
+      for (var j = 0; j < SIZES[l + 1]; j++) {
+        var row = [];
+        for (var i = 0; i < SIZES[l]; i++) row.push(randn() / Math.sqrt(SIZES[l]));
+        w.push(row); b.push(0);
+      }
+      W.push(w); B.push(b);
+    }
+  }
+
+  function forward(x, y) {
+    var acts = [[x, y]];
+    for (var l = 0; l < W.length; l++) {
+      var out = [];
+      for (var j = 0; j < W[l].length; j++) {
+        var z = B[l][j];
+        for (var i = 0; i < W[l][j].length; i++) z += W[l][j][i] * acts[l][i];
+        out.push(l === W.length - 1 ? 1 / (1 + Math.exp(-z)) : Math.tanh(z));
+      }
+      acts.push(out);
+    }
+    return acts;
+  }
+
+  function trainStep(data, lr) {
+    // accumulate gradients over the full (small) dataset
+    var gW = W.map(function (w) { return w.map(function (r) { return r.map(function () { return 0; }); }); });
+    var gB = B.map(function (b) { return b.map(function () { return 0; }); });
+    var loss = 0;
+
+    for (var n = 0; n < data.length; n++) {
+      var pt = data[n];
+      var acts = forward(pt[0], pt[1]);
+      var p = acts[acts.length - 1][0];
+      var t = pt[2];
+      loss += -(t * Math.log(p + 1e-9) + (1 - t) * Math.log(1 - p + 1e-9));
+
+      // output delta (sigmoid + BCE): p - t
+      var deltas = [[p - t]];
+      for (var l = W.length - 1; l > 0; l--) {
+        var prev = [];
+        for (var i = 0; i < SIZES[l]; i++) {
+          var e = 0;
+          for (var j = 0; j < W[l].length; j++) e += W[l][j][i] * deltas[0][j];
+          var a = acts[l][i];
+          prev.push(e * (1 - a * a)); // tanh'
+        }
+        deltas.unshift(prev);
+      }
+      for (var l2 = 0; l2 < W.length; l2++) {
+        for (var j2 = 0; j2 < W[l2].length; j2++) {
+          gB[l2][j2] += deltas[l2][j2];
+          for (var i2 = 0; i2 < W[l2][j2].length; i2++) {
+            gW[l2][j2][i2] += deltas[l2][j2] * acts[l2][i2];
+          }
+        }
+      }
+    }
+
+    var scale = lr / data.length;
+    for (var l3 = 0; l3 < W.length; l3++) {
+      for (var j3 = 0; j3 < W[l3].length; j3++) {
+        B[l3][j3] -= scale * gB[l3][j3];
+        for (var i3 = 0; i3 < W[l3][j3].length; i3++) W[l3][j3][i3] -= scale * gW[l3][j3][i3];
+      }
+    }
+    return loss / data.length;
+  }
+
+  // ---- datasets (coords in [-1, 1]) ----
+  function makeData(kind) {
+    var pts = [];
+    var i, a, r;
+    if (kind === 'xor') {
+      for (i = 0; i < 120; i++) {
+        var x = Math.random() * 2 - 1, y = Math.random() * 2 - 1;
+        pts.push([x, y, (x > 0) !== (y > 0) ? 1 : 0]);
+      }
+    } else if (kind === 'circles') {
+      for (i = 0; i < 60; i++) {
+        a = Math.random() * Math.PI * 2; r = Math.random() * 0.35;
+        pts.push([Math.cos(a) * r, Math.sin(a) * r, 1]);
+      }
+      for (i = 0; i < 60; i++) {
+        a = Math.random() * Math.PI * 2; r = 0.6 + Math.random() * 0.3;
+        pts.push([Math.cos(a) * r, Math.sin(a) * r, 0]);
+      }
+    } else { // spiral
+      for (i = 0; i < 70; i++) {
+        r = i / 70 * 0.9; a = i / 70 * 3 * Math.PI;
+        pts.push([r * Math.cos(a) + randn() * 0.02, r * Math.sin(a) + randn() * 0.02, 1]);
+        pts.push([r * Math.cos(a + Math.PI) + randn() * 0.02, r * Math.sin(a + Math.PI) + randn() * 0.02, 0]);
+      }
+    }
+    return pts;
+  }
+
+  // ---- rendering ----
+  var bCanvas = document.getElementById('boundary');
+  var bCtx = bCanvas.getContext('2d');
+  var lCanvas = document.getElementById('lossCurve');
+  var lCtx = lCanvas.getContext('2d');
+  var SZ = bCanvas.width, STEP = 7;
+
+  function colors() {
+    var light = document.body.dataset.theme === 'light';
+    return {
+      pos: light ? [122, 60, 255] : [217, 164, 255],
+      neg: light ? [5, 150, 105] : [0, 255, 170],
+      bg: light ? '#f6f6f6' : '#000',
+      fg: light ? '#0b0b0b' : '#fff'
+    };
+  }
+
+  function drawBoundary(data) {
+    var c = colors();
+    for (var px = 0; px < SZ; px += STEP) {
+      for (var py = 0; py < SZ; py += STEP) {
+        var x = (px / SZ) * 2 - 1, y = (py / SZ) * 2 - 1;
+        var p = forward(x, y);
+        var v = p[p.length - 1][0];
+        var col = v > 0.5 ? c.pos : c.neg;
+        var alpha = 0.10 + Math.abs(v - 0.5) * 0.5;
+        bCtx.fillStyle = 'rgba(' + col[0] + ',' + col[1] + ',' + col[2] + ',' + alpha + ')';
+        bCtx.fillRect(px, py, STEP, STEP);
+      }
+    }
+    for (var n = 0; n < data.length; n++) {
+      var pt = data[n];
+      var cx = (pt[0] + 1) / 2 * SZ, cy = (pt[1] + 1) / 2 * SZ;
+      var col2 = pt[2] === 1 ? c.pos : c.neg;
+      bCtx.beginPath();
+      bCtx.arc(cx, cy, 3.5, 0, Math.PI * 2);
+      bCtx.fillStyle = 'rgb(' + col2[0] + ',' + col2[1] + ',' + col2[2] + ')';
+      bCtx.fill();
+      bCtx.strokeStyle = c.bg;
+      bCtx.stroke();
+    }
+  }
+
+  var lossHistory = [];
+  function drawLoss() {
+    var c = colors();
+    lCtx.clearRect(0, 0, lCanvas.width, lCanvas.height);
+    lCtx.strokeStyle = 'rgba(128,128,128,0.4)';
+    lCtx.strokeRect(0.5, 0.5, lCanvas.width - 1, lCanvas.height - 1);
+    lCtx.fillStyle = c.fg;
+    lCtx.globalAlpha = 0.5;
+    lCtx.font = '11px monospace';
+    lCtx.fillText('loss', 8, 16);
+    lCtx.globalAlpha = 1;
+    if (lossHistory.length < 2) return;
+    var max = Math.max.apply(null, lossHistory);
+    lCtx.beginPath();
+    for (var i = 0; i < lossHistory.length; i++) {
+      var x = i / (lossHistory.length - 1) * (lCanvas.width - 20) + 10;
+      var y = lCanvas.height - 12 - (lossHistory[i] / max) * (lCanvas.height - 30);
+      if (i === 0) lCtx.moveTo(x, y); else lCtx.lineTo(x, y);
+    }
+    var accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#d9a4ff';
+    lCtx.strokeStyle = accent;
+    lCtx.lineWidth = 2;
+    lCtx.stroke();
+    lCtx.lineWidth = 1;
+  }
+
+  // ---- control loop ----
+  var data = makeData('spiral');
+  var training = false;
+  var epoch = 0;
+  var lrSlider = document.getElementById('lr');
+  var lrVal = document.getElementById('lrVal');
+  var trainBtn = document.getElementById('trainBtn');
+
+  function currentLR() { return Math.pow(10, parseFloat(lrSlider.value)); }
+  function fmtLR() { lrVal.textContent = currentLR().toFixed(currentLR() < 0.01 ? 3 : 2); }
+  lrSlider.addEventListener('input', fmtLR);
+  fmtLR();
+
+  function loop() {
+    if (!training) return;
+    var loss;
+    for (var k = 0; k < 8; k++) { loss = trainStep(data, currentLR()); epoch++; }
+    lossHistory.push(loss);
+    if (lossHistory.length > 300) lossHistory.shift();
+    document.getElementById('epochStat').textContent = 'epoch ' + epoch;
+    document.getElementById('lossStat').textContent = 'loss ' + loss.toFixed(4);
+    drawBoundary(data);
+    drawLoss();
+    requestAnimationFrame(loop);
+  }
+
+  trainBtn.addEventListener('click', function () {
+    training = !training;
+    trainBtn.textContent = training ? 'Pause' : 'Train';
+    if (training) requestAnimationFrame(loop);
+  });
+
+  function reset() {
+    training = false;
+    trainBtn.textContent = 'Train';
+    epoch = 0;
+    lossHistory = [];
+    data = makeData(document.getElementById('dataset').value);
+    initNet();
+    drawBoundary(data);
+    drawLoss();
+    document.getElementById('epochStat').textContent = 'epoch 0';
+    document.getElementById('lossStat').textContent = 'loss —';
+  }
+  document.getElementById('resetBtn').addEventListener('click', reset);
+  document.getElementById('dataset').addEventListener('change', reset);
+  document.addEventListener('themechange', function () { drawBoundary(data); drawLoss(); });
+
+  initNet();
+  drawBoundary(data);
+  drawLoss();
+})();
+</script>
+</body>
+</html>

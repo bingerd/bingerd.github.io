@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gradient Descent Playground — Bing Tan</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Drop a ball on a loss surface, pick a learning rate, and watch it converge, oscillate, or explode. Interactive gradient descent in your browser." />
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+<link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="../css/blog.css" />
+<style>
+  canvas { border-radius:14px; border:1px solid rgba(128,128,128,0.3); max-width:100%; touch-action:none; cursor:crosshair; }
+  .controls { display:flex; gap:16px; flex-wrap:wrap; align-items:center; margin:12px 0; }
+  .controls label { font-size:0.85rem; opacity:0.8; display:flex; align-items:center; gap:8px; }
+  .controls input[type=range] { accent-color: var(--accent); }
+  .btn { padding:8px 22px; border-radius:999px; border:1px solid var(--accent); background:none; color:var(--fg); cursor:pointer; font-size:0.9rem; }
+  .btn.primary { background:var(--accent); color:var(--on-accent, #000); font-weight:600; }
+  .status { font-family:'SF Mono','Fira Code',monospace; font-size:0.9rem; margin-top:8px; min-height:1.4em; }
+  .status.diverged { color:#ff5c5c; }
+  .status.converged { color:#00cc66; }
+</style>
+</head>
+<body data-theme="dark">
+<script src="../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../index.html">Home</a></li>
+    <li><a href="../index.html#playground">Playground</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Gradient Descent Playground</h1>
+  <p><em>I reduce loss functions for a living. Here's one you can reduce yourself.</em></p>
+
+  <p>This is the entire mechanism underneath deep learning, stripped of everything else. A loss function (the curve), a parameter (the ball's position), and one rule repeated forever: measure the slope where you stand, take a step downhill, step size proportional to the slope times the learning rate.</p>
+
+  <p><strong>Click anywhere on the curve</strong> to drop the ball, then press run. At a small learning rate it settles politely into the nearest valley, including the shallow local one on the left that isn't the best answer available. That's not a bug in this page, it's the actual fundamental limitation. Now raise the learning rate. First the ball starts overshooting the valley floor and ringing back and forth. Push further and each step lands higher than the last one started, and the whole thing leaves the visible universe. Every practitioner has produced that exact NaN in a training log. Now you can produce it on purpose.</p>
+
+  <div class="controls">
+    <label>Learning rate <input type="range" id="lr" min="-2.3" max="0.6" step="0.02" value="-1.3"> <span id="lrVal">0.05</span></label>
+    <label><input type="checkbox" id="momentum"> momentum (β=0.9)</label>
+    <button class="btn primary" id="runBtn">Run</button>
+    <button class="btn" id="stepBtn">Single step</button>
+  </div>
+  <canvas id="surface" width="760" height="380" aria-label="Loss curve with descending ball"></canvas>
+  <div class="status" id="status">Click the curve to place the ball.</div>
+
+  <p style="margin-top:32px;">The production version of this game is played with millions of parameters and a GPU bill. The rules don't change. Some stories from playing it for real: <a href="../docs/blog/2026/intent-classifier-training.html">One Encoder, Three Jobs →</a></p>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script>
+(function () {
+  var canvas = document.getElementById('surface');
+  var ctx = canvas.getContext('2d');
+  var W = canvas.width, H = canvas.height;
+  var XMIN = -5, XMAX = 5;
+
+  // Loss: two valleys, the right one deeper. f(x) = 0.03x^4 - 0.35x^2 + 0.18x + 2
+  function f(x) { return 0.03 * Math.pow(x, 4) - 0.35 * x * x + 0.18 * x + 2; }
+  function df(x) { return 0.12 * Math.pow(x, 3) - 0.7 * x + 0.18; }
+
+  var YMIN = -0.2, YMAX = 4.5;
+  function toPx(x) { return (x - XMIN) / (XMAX - XMIN) * W; }
+  function toPy(y) { return H - (y - YMIN) / (YMAX - YMIN) * H; }
+  function fromPx(px) { return px / W * (XMAX - XMIN) + XMIN; }
+
+  var ball = null;        // { x, v }
+  var trail = [];
+  var running = false;
+  var steps = 0;
+  var state = '';
+
+  var lrSlider = document.getElementById('lr');
+  var lrVal = document.getElementById('lrVal');
+  function currentLR() { return Math.pow(10, parseFloat(lrSlider.value)); }
+  function fmtLR() { lrVal.textContent = currentLR().toFixed(currentLR() < 0.01 ? 3 : 2); }
+  lrSlider.addEventListener('input', fmtLR);
+  fmtLR();
+
+  function accent() { return getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#d9a4ff'; }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    // curve
+    ctx.beginPath();
+    for (var px = 0; px <= W; px++) {
+      var y = toPy(f(fromPx(px)));
+      if (px === 0) ctx.moveTo(px, y); else ctx.lineTo(px, y);
+    }
+    ctx.strokeStyle = 'rgba(128,128,128,0.8)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // trail
+    for (var i = 0; i < trail.length; i++) {
+      var t = trail[i];
+      ctx.beginPath();
+      ctx.arc(toPx(t), toPy(f(t)), 3, 0, Math.PI * 2);
+      ctx.fillStyle = accent();
+      ctx.globalAlpha = 0.15 + 0.5 * (i / trail.length);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // ball
+    if (ball) {
+      ctx.beginPath();
+      ctx.arc(toPx(ball.x), toPy(f(ball.x)), 8, 0, Math.PI * 2);
+      ctx.fillStyle = accent();
+      ctx.fill();
+    }
+  }
+
+  function setStatus(text, cls) {
+    var el = document.getElementById('status');
+    el.textContent = text;
+    el.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  function step() {
+    if (!ball) return;
+    var lr = currentLR();
+    var g = df(ball.x);
+    if (document.getElementById('momentum').checked) {
+      ball.v = 0.9 * ball.v - lr * g;
+      ball.x += ball.v;
+    } else {
+      ball.x -= lr * g;
+    }
+    steps++;
+    trail.push(ball.x);
+    if (trail.length > 120) trail.shift();
+
+    if (!isFinite(ball.x) || Math.abs(ball.x) > 50) {
+      running = false;
+      state = 'diverged';
+      setStatus('DIVERGED after ' + steps + ' steps. The learning rate wrote a check the loss surface could not cash. 💥', 'diverged');
+      document.getElementById('runBtn').textContent = 'Run';
+      ball = null;
+      return;
+    }
+    if (Math.abs(g) < 1e-3 && Math.abs(ball.v || 0) < 1e-3) {
+      running = false;
+      state = 'converged';
+      var global = ball.x > 0;
+      setStatus('Converged in ' + steps + ' steps at x=' + ball.x.toFixed(3) + ', loss=' + f(ball.x).toFixed(3) +
+        (global ? ' (the global minimum, nice)' : ' (a LOCAL minimum — the better valley was right there)'), 'converged');
+      document.getElementById('runBtn').textContent = 'Run';
+      return;
+    }
+    setStatus('step ' + steps + ' · x=' + ball.x.toFixed(3) + ' · loss=' + f(ball.x).toFixed(3) + ' · grad=' + g.toFixed(3));
+  }
+
+  function loop() {
+    if (!running) return;
+    step();
+    draw();
+    setTimeout(function () { requestAnimationFrame(loop); }, 40);
+  }
+
+  canvas.addEventListener('pointerdown', function (e) {
+    var rect = canvas.getBoundingClientRect();
+    var x = fromPx((e.clientX - rect.left) * (W / rect.width));
+    ball = { x: x, v: 0 };
+    trail = [];
+    steps = 0;
+    state = '';
+    running = false;
+    document.getElementById('runBtn').textContent = 'Run';
+    setStatus('Ball at x=' + x.toFixed(2) + '. Run, or take single steps.');
+    draw();
+  });
+
+  document.getElementById('runBtn').addEventListener('click', function () {
+    if (!ball) { setStatus('Click the curve first to place the ball.'); return; }
+    running = !running;
+    this.textContent = running ? 'Pause' : 'Run';
+    if (running) loop();
+  });
+  document.getElementById('stepBtn').addEventListener('click', function () {
+    if (!ball) { setStatus('Click the curve first to place the ball.'); return; }
+    step(); draw();
+  });
+  document.addEventListener('themechange', draw);
+
+  draw();
+})();
+</script>
+</body>
+</html>

@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Personal portfolio site for Bing Tan — Machine Learning Engineer",
   "scripts": {
-    "test": "node --test tests/predictions.test.js tests/validate-html.test.js",
+    "test": "node --test tests/validate-html.test.js",
     "lint": "eslint js/",
     "validate": "node --test tests/validate-html.test.js"
   },
