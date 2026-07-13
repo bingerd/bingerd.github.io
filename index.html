@@ -97,24 +97,24 @@
       </dl>
     </div>
     <div class="about-personal">
-      <p>Most ML engineers come from computer science. I came from business analytics. My MSc at VU Amsterdam had me building deep learning models in the Computational Intelligence track, but my undergrad taught me something most engineers skip: why the model matters to the business. I think that's why I obsess over production — a model that doesn't ship is just a notebook.</p>
-      <p>I believe the best model is the one that's actually in production. Monitoring matters more than accuracy. A model you can't observe is a liability. And I'd rather ship something simple on Monday than something perfect never.</p>
-      <p>I get unreasonably excited about shaving milliseconds off inference latency, building systems that fail gracefully instead of silently, and the moment when a training loss curve finally bends.</p>
+      <p>Most ML engineers come from computer science. I came from business analytics. My MSc at VU Amsterdam had me building deep learning models in the Computational Intelligence track, but my undergrad taught me something most engineers skip: why the model matters to the business. A model that doesn't ship is just a notebook.</p>
+      <p>My work runs the whole altitude range: multi-task transformers serving e-commerce search at 1000 requests per second, and a personal AI app where the entire model fits on a phone and the network is not an option. Same discipline at both ends — count your milliseconds, budget your tokens, test your invariants.</p>
+      <p>When I'm not shipping, I'm teaching cloud engineering to TU Delft students, running my house on GitOps, or building <a href="#playground">interactive toys</a> that explain how this stuff actually works.</p>
     </div>
     <div class="about-content">
       <h3 class="section-label">Primary Capabilities</h3>
       <div class="about-focus">
         <div class="focus-item">
-          <h3>Inference & Serving</h3>
-          <p>Low-latency GPU inference, dynamic batching, model optimization, autoscaling</p>
+          <h3>Training & NLP</h3>
+          <p>Multi-task transformers, domain adaptation, hyperparameter search, evaluation discipline</p>
         </div>
         <div class="focus-item">
-          <h3>Training & Pipelines</h3>
-          <p>Distributed training, feature engineering, data pipelines, experiment tracking</p>
+          <h3>Serving & Infrastructure</h3>
+          <p>Request batching, GKE + Terraform, load testing, latency SLAs, observability</p>
         </div>
         <div class="focus-item">
-          <h3>MLOps & Reliability</h3>
-          <p>CI/CD for ML, monitoring, A/B testing, gradual rollouts, incident response</p>
+          <h3>Agents & On-Device AI</h3>
+          <p>LLM agents with tool use, context engineering, hybrid retrieval, on-device inference</p>
         </div>
       </div>
     </div>
@@ -126,10 +126,10 @@
     <h2 class="section-title">How I Think</h2>
     <div class="beliefs">
       <blockquote>The best model is the one that's actually in production.</blockquote>
-      <blockquote>Monitoring > accuracy. A model you can't observe is a liability.</blockquote>
-      <blockquote>Ship simple on Monday. Ship perfect never.</blockquote>
-      <blockquote>If your feature store has drift, your model has drift. You just don't know it yet.</blockquote>
-      <blockquote>The gap between research and production isn't technical — it's operational.</blockquote>
+      <blockquote>If your eval set is synthetic, you don't have an evaluation. You have an optimistic simulation.</blockquote>
+      <blockquote>Before blending two scores, prove they share a scale. With a test, not a comment.</blockquote>
+      <blockquote>terraform destroy is a cost-control habit, not an emergency procedure.</blockquote>
+      <blockquote>The model is the voice. Never the librarian.</blockquote>
     </div>
   </div>
 </section>
@@ -139,41 +139,44 @@
     <h2 class="section-title">Tech Stack</h2>
     <div class="skills-grid">
       <div class="skill-category">
-        <h3>ML Frameworks</h3>
+        <h3>ML & NLP</h3>
         <div class="skill-tags">
           <span class="skill-tag">PyTorch</span>
-          <span class="skill-tag">TensorFlow</span>
+          <span class="skill-tag">PyTorch Lightning</span>
           <span class="skill-tag">HuggingFace</span>
-          <span class="skill-tag">scikit-learn</span>
+          <span class="skill-tag">ONNX Runtime</span>
+          <span class="skill-tag">Optuna</span>
         </div>
       </div>
       <div class="skill-category">
-        <h3>Infrastructure</h3>
+        <h3>Serving & Infra</h3>
         <div class="skill-tags">
           <span class="skill-tag">Kubernetes</span>
+          <span class="skill-tag">Terraform</span>
           <span class="skill-tag">Docker</span>
-          <span class="skill-tag">AWS</span>
-          <span class="skill-tag">GCP</span>
-          <span class="skill-tag">Databricks</span>
+          <span class="skill-tag">FastAPI</span>
+          <span class="skill-tag">Argo CD</span>
         </div>
       </div>
       <div class="skill-category">
-        <h3>MLOps & Data</h3>
+        <h3>Cloud & Observability</h3>
         <div class="skill-tags">
-          <span class="skill-tag">MLflow</span>
+          <span class="skill-tag">GCP</span>
+          <span class="skill-tag">Vertex AI</span>
+          <span class="skill-tag">BigQuery</span>
           <span class="skill-tag">Airflow</span>
-          <span class="skill-tag">Spark</span>
-          <span class="skill-tag">dbt</span>
+          <span class="skill-tag">Prometheus</span>
+          <span class="skill-tag">Grafana</span>
+          <span class="skill-tag">Locust</span>
         </div>
       </div>
       <div class="skill-category">
         <h3>Languages</h3>
         <div class="skill-tags">
           <span class="skill-tag">Python</span>
-          <span class="skill-tag">Rust</span>
-          <span class="skill-tag">C++</span>
-          <span class="skill-tag">Kotlin</span>
+          <span class="skill-tag">Swift</span>
           <span class="skill-tag">SQL</span>
+          <span class="skill-tag">JavaScript</span>
         </div>
       </div>
     </div>
@@ -185,44 +188,49 @@
     <h2 class="section-title">Case Studies</h2>
     <div class="case-studies">
       <div class="case-study">
-        <h3>How We Cut Inference Latency by 42% (Without Losing Sleep)</h3>
+        <h3>One Encoder, Three Jobs</h3>
         <div class="case-study-narrative">
-          <p>Our inference platform was handling 50M predictions a day on CPU. Latency was "acceptable" — until a traffic spike turned p99 from 200ms to 2 seconds. The on-call page woke me up at 2am.</p>
-          <p>By morning I had a prototype: dynamic batching with ONNX Runtime on GPU, predictive autoscaling triggered by Kafka traffic signals, and a fallback to cached predictions when the model was cold. Three weeks later we were in production.</p>
-          <p>p99 dropped 42%. Throughput tripled. And the team's annual cloud bill got roughly $100k lighter.</p>
+          <p>Search intent classification for a large Dutch e-commerce platform grew into three BERT models: buying intent, brand/creator recognition, and category prediction over roughly fifteen thousand labels. Three models meant three forward passes on every query, at search-traffic volumes.</p>
+          <p>All three were fine-tuned from the same domain-adapted encoder, and only the top layers diverged. So we composed them into a single system model: one pass through shared layers 0–9, branching at layer 10 into three task-specific heads. One tokenization, one encoder run, three answers.</p>
+          <p>The humbling lesson came from evaluation: the model looked great on synthetic held-out sets, then dropped eight F1 points on real labeled queries. Real data dominated evaluation from that day on.</p>
         </div>
         <div class="case-study-metrics">
-          <div class="metric"><div class="metric-value">42%</div><div class="metric-label">p99 Latency Reduction</div></div>
-          <div class="metric"><div class="metric-value">3.1×</div><div class="metric-label">Throughput Increase</div></div>
-          <div class="metric"><div class="metric-value">~$100k</div><div class="metric-label">Annual Cloud Savings</div></div>
+          <div class="metric"><div class="metric-value">2.5×</div><div class="metric-label">Faster Than Separate Models</div></div>
+          <div class="metric"><div class="metric-value">3</div><div class="metric-label">Tasks, One Forward Pass</div></div>
+          <div class="metric"><div class="metric-value">15,000</div><div class="metric-label">Product Categories</div></div>
         </div>
+        <a class="case-study-link" href="docs/blog/2026/intent-classifier-training.html">Read the full story →</a>
       </div>
 
       <div class="case-study">
-        <h3>Fixing Train-Serve Skew Before It Fixed Our OKRs</h3>
-        <p class="case-study-lead">Feature values were different in training and serving. The model didn't care. Our users did.</p>
-        <div class="case-study-grid">
-          <div class="case-study-item">
-            <h4>Challenge</h4>
-            <p>Feature computation was a bottleneck, with inconsistent values between training and serving causing model drift.</p>
-          </div>
-          <div class="case-study-item">
-            <h4>Solution</h4>
-            <p>Built unified feature store with streaming ingestion, point-in-time correctness, and sub-10ms serving latency.</p>
-          </div>
-          <div class="case-study-item">
-            <h4>Tech Stack</h4>
-            <p>Apache Kafka, Redis, Spark Streaming, Feast, Python, Go.</p>
-          </div>
+        <h3>The 150-Millisecond Question</h3>
+        <div class="case-study-narrative">
+          <p>The serving side of that classifier had one non-negotiable: P90 under 150 milliseconds at 1000 requests per second. Three Terraform stacks with separate lifecycles — training, serving, and a stress-test cluster whose only job was to attack the serving cluster with Locust, because at 1000 RPS the load generator is a distributed system too.</p>
+          <p>The headline finding wasn't in the infrastructure. It was in the API process: collecting requests in an async queue and draining up to 16 of them every 10 milliseconds into one forward pass tripled sustainable throughput on identical hardware. Runner-up: <code>torch.set_num_threads(1)</code>, because PyTorch's eagerness to parallelize small inferences meant threads fighting each other under load.</p>
         </div>
         <div class="case-study-metrics">
-          <div class="metric"><div class="metric-value">&lt;10ms</div><div class="metric-label">Feature Serving Latency</div></div>
-          <div class="metric"><div class="metric-value">15%</div><div class="metric-label">Model Accuracy Improvement</div></div>
-          <div class="metric"><div class="metric-value">100+</div><div class="metric-label">Features in Production</div></div>
+          <div class="metric"><div class="metric-value">3×</div><div class="metric-label">Throughput From Batching</div></div>
+          <div class="metric"><div class="metric-value">&lt;150ms</div><div class="metric-label">P90 at 1000 RPS</div></div>
+          <div class="metric"><div class="metric-value">60–70%</div><div class="metric-label">Cheaper on Preemptible Nodes</div></div>
         </div>
+        <a class="case-study-link" href="docs/blog/2026/terraform-load-testing.html">Read the full story →</a>
+      </div>
+
+      <div class="case-study">
+        <h3>A Second Brain in 8,192 Tokens</h3>
+        <div class="case-study-narrative">
+          <p>My first iOS app: a personal AI second brain where the model runs entirely on the phone. No API, no server — the app's only network request is downloading the model itself, once. The context window is 8,192 tokens on a good device, and everything must fit.</p>
+          <p>The constraint became the architect. Search never touches the LLM: hybrid BM25 + vector retrieval answers in under half a millisecond. Token budgets are enforced by a cheap estimator validated against the real tokenizer in CI. And privacy is a compile-time property: a test scans every source file and fails the build if networking primitives appear outside the one sanctioned download function.</p>
+        </div>
+        <div class="case-study-metrics">
+          <div class="metric"><div class="metric-value">0.3ms</div><div class="metric-label">Keyword Search Latency</div></div>
+          <div class="metric"><div class="metric-value">8,192</div><div class="metric-label">Token Budget, Everything Included</div></div>
+          <div class="metric"><div class="metric-value">0</div><div class="metric-label">Network Calls (Tested, Not Promised)</div></div>
+        </div>
+        <a class="case-study-link" href="docs/blog/2026/atlas-context-engineering.html">Read the full story →</a>
       </div>
     </div>
-    <p style="margin-top: 24px; font-size: 0.9rem; opacity: 0.6;">Numbers come from team efforts I contributed to — happy to walk through the details in conversation.</p>
+    <p style="margin-top: 24px; font-size: 0.9rem; opacity: 0.6;">Full write-ups, including the bugs, in the linked posts.</p>
 
     <!-- Loss Curve Timeline -->
     <div class="loss-curve-container">
@@ -239,9 +247,9 @@
         <circle cx="260" cy="90" r="5" fill="var(--accent)"/>
         <text x="260" y="78" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">First model in prod</text>
         <circle cx="480" cy="140" r="5" fill="var(--accent)"/>
-        <text x="480" y="128" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">42% latency cut</text>
+        <text x="480" y="128" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">One encoder, three jobs</text>
         <circle cx="720" cy="161" r="5" fill="var(--accent)"/>
-        <text x="720" y="149" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">50M daily predictions</text>
+        <text x="720" y="149" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">Shipped on-device AI</text>
       </svg>
     </div>
   </div>
@@ -249,32 +257,36 @@
 
 <section id="projects" data-loading-text="Compiling computation graph...">
   <div class="container">
-    <h2 class="section-title">Systems I've Worked On</h2>
-    <p class="section-intro">Built with teams at work — the code isn't public, but I'm happy to talk architecture.</p>
+    <h2 class="section-title">Systems I've Built</h2>
+    <p class="section-intro">Some for clients, some for me. Every one of them has a story — click through.</p>
     <div class="projects">
       <div class="card visible">
-        <h3>LLM Serving Toolkit</h3>
-        <p>High-performance inference server with continuous batching, KV cache management, and OpenAI-compatible API.</p>
-        <span class="card-scale">50M+ req/day</span>
-        <div class="card-tags"><span>PyTorch</span><span>Rust</span><span>CUDA</span></div>
+        <h3>Receipt-Reading Expense Agent</h3>
+        <p>An AI agent that reads receipt photos with a vision model, checks them against expense policy, and politely declines your Netflix subscription. Evaluated like software, not vibes.</p>
+        <span class="card-scale">In production</span>
+        <div class="card-tags"><span>Agents</span><span>Vision LLM</span><span>Evals</span></div>
+        <a class="case-study-link" href="docs/blog/2026/receipt-agent.html">Read the story →</a>
       </div>
       <div class="card visible">
-        <h3>ML Pipeline Framework</h3>
-        <p>Declarative ML pipeline orchestration with automatic versioning, caching, and distributed execution.</p>
-        <span class="card-scale">200+ daily runs</span>
-        <div class="card-tags"><span>Python</span><span>Ray</span><span>K8s</span></div>
+        <h3>AI Agents Course</h3>
+        <p>A 2-day hands-on course on building and evaluating AI agents. Designing the agents was the easy part — testing non-deterministic systems in front of a room was the real curriculum.</p>
+        <span class="card-scale">2 days, hands-on</span>
+        <div class="card-tags"><span>Google ADK</span><span>Multi-agent</span><span>Evals</span></div>
+        <a class="case-study-link" href="docs/blog/2026/agent-course.html">Read the story →</a>
       </div>
       <div class="card visible">
-        <h3>Feature Store</h3>
-        <p>Real-time feature serving with point-in-time correctness and streaming ingestion for ML models.</p>
-        <span class="card-scale">&lt;10ms p99</span>
-        <div class="card-tags"><span>Go</span><span>Redis</span><span>Kafka</span></div>
+        <h3>Home Platform on GitOps</h3>
+        <p>A k3s cluster running Home Assistant, Matter, and everything else my house needs. Every change is a git push; Argo CD does the rest. My thermostat has a deployment pipeline.</p>
+        <span class="card-scale">Prod uptime, at home</span>
+        <div class="card-tags"><span>k3s</span><span>Argo CD</span><span>Home Assistant</span></div>
+        <a class="case-study-link" href="docs/blog/2026/home-cluster-gitops.html">Read the story →</a>
       </div>
       <div class="card visible">
-        <h3>Model Monitor</h3>
-        <p>Drift detection, performance monitoring, and alerting system for production ML models.</p>
-        <span class="card-scale">40+ models tracked</span>
-        <div class="card-tags"><span>Python</span><span>Prometheus</span><span>Grafana</span></div>
+        <h3>Self-Terminating Minecraft Server</h3>
+        <p>A cloud Minecraft server that checks its own player count and kills itself when nobody's online. Preemptible VMs, Terraform, and a world that persists between suicides.</p>
+        <span class="card-scale">€0 when idle</span>
+        <div class="card-tags"><span>Terraform</span><span>GCP</span><span>Preemptible VMs</span></div>
+        <a class="case-study-link" href="docs/blog/2026/minecraft-server-killswitch.html">Read the story →</a>
       </div>
     </div>
     <p style="margin-top: 32px; opacity: 0.7;"><a href="https://github.com/bingerd" style="color: var(--accent);">Personal projects and experiments on GitHub →</a></p>
