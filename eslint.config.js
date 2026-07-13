@@ -18,6 +18,9 @@ export default [
         clearTimeout: 'readonly',
         matchMedia: 'readonly',
         navigator: 'readonly',
+        cancelAnimationFrame: 'readonly',
+        localStorage: 'readonly',
+        CustomEvent: 'readonly',
         HTMLCanvasElement: 'readonly',
         WebGLRenderingContext: 'readonly',
         IntersectionObserver: 'readonly',
@@ -31,7 +34,7 @@ export default [
     }
   },
   {
-    files: ['js/predictions.js', 'js/main.js', 'js/easter-eggs.js'],
+    files: ['js/predictions.js', 'js/main.js', 'js/easter-eggs.js', 'js/theme.js'],
     languageOptions: {
       sourceType: 'script',
       globals: {

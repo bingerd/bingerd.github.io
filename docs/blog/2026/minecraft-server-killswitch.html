@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>The Minecraft Server That Kills Itself (to Save Me Money) — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="A Minecraft world that never stops existing but almost never costs anything: a preemptible VM that shuts itself down after an hour of silence, and a tiny Cloud Run dashboard to wake it up." />
+  <meta property="og:title" content="The Minecraft Server That Kills Itself (to Save Me Money)" />
+  <meta property="og:description" content="Imagine a server that never stops existing and costs very little. RCON polling, a self-terminating VM, and a Cloud Run control plane." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/minecraft-server-killswitch.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/minecraft-server-killswitch.html" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>The Minecraft Server That Kills Itself (to Save Me Money)</h1>
+  <p><em>January 2026 · 8 min read</em></p>
+
+  <p>Here's the pitch I gave my friends: imagine a Minecraft server that never stops existing, but costs almost nothing. The world is always there. Your builds are always there. The server itself? It only exists while someone is actually playing. The rest of the time, it's just a disk in a datacenter, dreaming.</p>
+
+  <p>A regular VM running Minecraft 24/7 isn't expensive, exactly. Maybe €25 a month for something decent. But we play in bursts. A weekend of intense building, then three weeks of nothing. Paying for 720 hours a month to use 15 of them offended me more than the amount itself did.</p>
+
+  <h2>Separating the world from the server</h2>
+
+  <p>The trick that makes everything else work is realizing that "the server" is two different things. There's the world (the save files, the terrain, the half-finished castle) and there's the process serving it. The world needs to be permanent. The process doesn't.</p>
+
+  <blockquote class="pullquote">The world is permanent. The process is disposable.</blockquote>
+
+  <p>So the world lives on a 20 GiB persistent disk, with backups going to a Cloud Storage bucket in the same region. The process runs on a preemptible e2-medium VM that mounts that disk on boot. Preemptible machines are 60 to 70% cheaper because Google reserves the right to yank them whenever it needs capacity. That sounds terrible for a game server, until you notice that our killswitch shuts it down on purpose anyway. Getting occasionally preempted is just the killswitch firing early. I even set <code>automatic_restart = false</code> in the Terraform: if Google takes the machine, nothing resurrects it. Only a human pressing the button, or nothing at all, decides whether it comes back. The machine has no will to live, and that's a feature.</p>
+
+  <h2>The startup script does everything, every time</h2>
+
+  <p>Because the VM is disposable, the startup script has to be the whole truth. Every boot begins from a blank Ubuntu 22.04 and rebuilds the runtime from scratch. Install Docker. Authenticate against Artifact Registry. Then handle the disk with the paranoia the disk deserves: detect it, format it <em>only if it has no filesystem</em>, mount it at <code>/mnt/disks/minecraft-data</code>, and write the mount into <code>/etc/fstab</code> so a reboot inside the VM's lifetime doesn't lose it. The format-only-if-blank check is the line I re-read most carefully in the whole repo, for the obvious reason. The disk is the world, and the script that gives the server life is one bad conditional away from lobotomizing it.</p>
+
+  <p>Then it pulls the server image (itzg's excellent <code>minecraft-server</code> base with RCON enabled, 2 G of heap) and runs it with <code>--restart unless-stopped</code>, so a crash inside the container heals itself without any cloud machinery noticing. The container exposes three ports: 25565 for the game, 25575 for RCON, and 8000 for a small API we'll get to. A mid-session preemption, from a player's perspective, is a laggy minute followed by everyone reconnecting.</p>
+
+  <h2>The killswitch</h2>
+
+  <p>The part I'm most fond of is a bash script that lets the VM decide when to die. Inside the container, next to the Minecraft process, a loop polls the server over RCON every 30 seconds:</p>
+
+  <pre><code class="language-bash">players=$(rcon-cli list | grep -oE "There are ([0-9]+) of" | grep -oE "[0-9]+")
+if [ "$players" -gt 0 ]; then
+    last_active=$(date +%s)
+fi</code></pre>
+
+  <p>When the gap since <code>last_active</code> passes the idle limit (an hour by default, read fresh from the environment on every loop iteration so I can tune it without redeploying), the shutdown sequence runs. First <code>rcon-cli save-all</code>. Then thirty seconds of grace for the write to land. And then the line that makes people do a double-take:</p>
+
+  <pre><code class="language-bash">gcloud compute instances stop $VM_NAME --zone $ZONE</code></pre>
+
+  <p>The VM stops itself. For that to work, the machine's service account needs <code>compute.instanceAdmin.v1</code> on its own project, the IAM equivalent of handing someone the keys to their own off-switch. It felt strange to write, and then immediately correct. Nobody knows the server is idle better than the server. The full life cycle, from doorbell to self-termination:</p>
+
+  <pre class="mermaid">
+sequenceDiagram
+    participant F as Friend
+    participant CR as Cloud Run dashboard
+    participant VM as Preemptible VM
+    participant MC as Minecraft container
+    participant D as Persistent disk
+    F->>CR: GET /start (no auth needed)
+    CR->>VM: start instance
+    VM->>D: mount world at /mnt/disks
+    VM->>MC: docker run (RCON enabled)
+    F->>MC: play for hours
+    loop every 30s
+        MC->>MC: rcon-cli list → player count
+    end
+    Note over MC: 0 players for 1 hour
+    MC->>MC: rcon-cli save-all
+    MC->>D: world safely written
+    MC->>VM: gcloud compute instances stop (self)
+    Note over VM,D: VM gone, world remains.&lt;br/&gt;Billing: ~€1/month for the disk
+  </pre>
+
+  <p>A stopped VM bills for its disk and nothing else. Twenty gigabytes of pd-balanced storage costs about a euro a month. That's the "never stops existing" part of the pitch. The world persists for pocket change while the compute evaporates.</p>
+
+  <h2>Waking it back up</h2>
+
+  <p>A server that kills itself needs a doorbell, and I didn't want the doorbell to be "message me and I'll run a gcloud command." So there's a tiny FastAPI app on Cloud Run that acts as the control plane. Max scale 1, 512 MiB, 60-second request timeout, scales to zero like everything else in this project.</p>
+
+  <!-- IMAGE SLOT: Cloud Run dashboard screenshot with the START button and status view (docs/blog/images/minecraft-dashboard.png) -->
+
+  <p>It serves a little dashboard, and the interesting endpoint design is in the auth asymmetry. <code>/start</code> requires no authentication at all. Anyone with the link can wake the server, because the worst thing a stranger can do with it is briefly cost me a few cents until the killswitch notices nobody joined. <code>/stop</code> and the raw <code>/rcon</code> proxy sit behind a bearer token though, because those can actually ruin someone's evening. Scoping the security effort to the endpoints where damage is possible kept the whole thing simple. Friends bookmark one URL, press one button, and by the time Minecraft has found the server in the multiplayer list, it's usually up. The dashboard polls <code>/status</code> while the machine boots, so there's even a little "STARTING" state to watch instead of refreshing blindly.</p>
+
+  <p>Two details in the plumbing earn their keep. First, the RCON proxying is two-hop by design. The Cloud Run app never holds the RCON password. It forwards commands to a separate little API inside the container (that port 8000), authenticated with its own key, which runs <code>rcon-cli</code> as a subprocess and returns stdout, stderr and the return code as JSON. Each layer holds only the secret it needs. Second, because a stopped-and-started VM can come back with a different public IP, the control plane updates a DNS record via the Cloudflare API on boot. So the server address my friends have memorized keeps working, even though the machine behind it is technically a different lease on life each time.</p>
+
+  <h2>What it actually costs</h2>
+
+  <p>A month of typical usage, a few evenings and one big weekend, lands somewhere around two to four euros. Burst compute at preemptible rates, one persistent disk, backups, and a Cloud Run service that's asleep more than the VM is. The same setup running 24/7 on a standard VM would be roughly ten times that. The bill scales with fun had, which is the only fair way for a hobby to bill.</p>
+
+  <!-- IMAGE SLOT: GCP billing screenshot showing a €2-4 month, ideally next to a heavier month (docs/blog/images/minecraft-bill.png) -->
+
+  <p>All of it is Terraform, which turned out to matter more than expected. The whole environment (firewall rules for the three ports, the service account with its self-termination role, the GCS bucket binding, the Cloud Run service with its env wiring) is one <code>apply</code> away from existing and one <code>destroy</code> away from not. When we lost interest for two months, I destroyed everything except the disk and the bucket. The world kept existing. The bill nearly didn't.</p>
+
+  <h2>The twin in my living room</h2>
+
+  <p>There's a second life for this idea. A variant of the same server runs on the <a href="home-cluster-gitops.html">k3s cluster in my living room</a>, where the economics invert. At home, compute is a sunk cost because the NUC runs anyway, so the "killswitch" becomes a FastAPI controller that scales the Minecraft deployment to zero replicas instead of stopping a VM, and mc-router steers players between instances. Same philosophy, different substrate. The world is permanent, the process is disposable, and something small and deterministic is always watching for the moment nobody's playing. Of the two, the cloud version is the better party trick. The home version is the better neighbor, since nobody's electricity bill notices a sleeping deployment.</p>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://github.com/itzg/docker-minecraft-server">itzg/docker-minecraft-server</a>: The de-facto standard container image for running Minecraft. It handles EULA acceptance, memory flags, RCON setup and world persistence through environment variables, so the startup script configures a game server the same way it would any other twelve-factor app. Used because reinventing Minecraft ops in bash is a hobby I don't want.</li>
+    <li><a href="https://minecraft.wiki/w/RCON">RCON</a>: The remote-console protocol built into the Minecraft server. It lets external tools run server commands (list players, save the world) over a socket. It's the killswitch's eyes: polling <code>rcon-cli list</code> every 30 seconds is how the machine knows nobody is playing.</li>
+    <li><a href="https://cloud.google.com/compute/docs/instances/preemptible">GCP preemptible VMs</a>: Spare Google Cloud capacity at a 60-70% discount, with the catch that Google can reclaim the machine at any time. Perfect fit here, because a server designed to shut itself down anyway treats a preemption as the killswitch firing early. The discount is the whole cost model.</li>
+    <li><a href="https://cloud.google.com/run">Cloud Run</a>: Google's serverless container platform, scale-to-zero included. It hosts the start/stop dashboard, which needs to exist 24/7 but run almost never. Serverless means the doorbell costs nothing while nobody is ringing it.</li>
+    <li><a href="https://developer.hashicorp.com/terraform">Terraform</a>: Infrastructure as code: the VM, disk, firewall rules, IAM roles and Cloud Run service are all declared in files, so the entire environment can be created or destroyed in one command. That's what made 'destroy everything except the world when we stop playing' a two-minute operation instead of a checklist.</li>
+    <li><a href="https://developers.cloudflare.com/api/">Cloudflare API</a>: Programmatic DNS management. A stopped-and-restarted VM can come back with a new IP, so on boot the control plane updates the DNS record. The address friends memorized keeps working while the machine behind it changes.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

@@ -9,14 +9,24 @@ function readFile(relativePath) {
   return readFileSync(resolve(ROOT, relativePath), 'utf-8');
 }
 
+const blogFiles = [
+  'docs/blog/2025/webhook-hmac.html',
+  'docs/blog/2026/minecraft-server-killswitch.html',
+  'docs/blog/2026/intent-classifier-training.html',
+  'docs/blog/2026/terraform-load-testing.html',
+  'docs/blog/2026/home-cluster-gitops.html',
+  'docs/blog/2026/agent-course.html',
+  'docs/blog/2026/receipt-agent.html',
+  'docs/blog/2026/home-assistant-k8s.html',
+  'docs/blog/2026/teaching-cloud-tu-delft.html',
+  'docs/blog/2026/atlas-context-engineering.html'
+];
+
 const htmlFiles = [
   'index.html',
   'games/backprop-runner-canyon.html',
   'animations/neural-field-particles.html',
-  'docs/blog/2026/ml-production.html',
-  'docs/blog/2026/mlops-lessons.html',
-  'docs/blog/2026/rust-torch-serving.html',
-  'docs/blog/2026/transformers-kv-caching.html'
+  ...blogFiles
 ];
 
 describe('HTML structure validation', () => {
@@ -47,13 +57,6 @@ describe('HTML structure validation', () => {
 });
 
 describe('blog posts use shared stylesheet', () => {
-  const blogFiles = [
-    'docs/blog/2026/ml-production.html',
-    'docs/blog/2026/mlops-lessons.html',
-    'docs/blog/2026/rust-torch-serving.html',
-    'docs/blog/2026/transformers-kv-caching.html'
-  ];
-
   for (const file of blogFiles) {
     it(`${file} links to blog.css`, () => {
       const content = readFile(file);
@@ -67,17 +70,39 @@ describe('blog posts use shared stylesheet', () => {
   }
 });
 
-describe('mlops-lessons.html has unique content', () => {
-  it('differs from ml-production.html', () => {
-    const mlProd = readFile('docs/blog/2026/ml-production.html');
-    const mlOps = readFile('docs/blog/2026/mlops-lessons.html');
-    assert.notEqual(mlProd, mlOps, 'mlops-lessons.html should have different content from ml-production.html');
-  });
+describe('mermaid diagrams have their renderer', () => {
+  for (const file of blogFiles) {
+    const content = readFile(file);
+    if (content.includes('class="mermaid"')) {
+      it(`${file} loads js/mermaid-init.js`, () => {
+        assert.ok(content.includes('mermaid-init.js'), `${file} has mermaid diagrams but does not load mermaid-init.js`);
+      });
+    }
+  }
 
-  it('has its own title', () => {
-    const content = readFile('docs/blog/2026/mlops-lessons.html');
-    assert.ok(content.includes('MLOps Lessons'), 'mlops-lessons.html should have MLOps-specific title');
+  it('js/mermaid-init.js exists', () => {
+    assert.ok(existsSync(resolve(ROOT, 'js/mermaid-init.js')), 'js/mermaid-init.js should exist');
   });
+});
+
+describe('blog posts are listed in blog-data.js', () => {
+  const blogData = readFileSync(resolve(ROOT, 'js/blog-data.js'), 'utf-8');
+  for (const file of blogFiles) {
+    it(`${file} appears in the blogPosts array`, () => {
+      assert.ok(blogData.includes(file), `${file} should be listed in js/blog-data.js blogPosts`);
+    });
+  }
+});
+
+describe('blog posts load their enhancement scripts', () => {
+  for (const file of blogFiles) {
+    it(`${file} loads blog-data.js and post-extras.js`, () => {
+      const content = readFile(file);
+      assert.ok(content.includes('blog-data.js'), `${file} should load blog-data.js`);
+      assert.ok(content.includes('post-extras.js'), `${file} should load post-extras.js`);
+      assert.ok(content.includes('id="postNav"'), `${file} should have the postNav container`);
+    });
+  }
 });
 
 describe('index.html references correct JS files', () => {

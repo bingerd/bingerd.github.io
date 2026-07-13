@@ -1,10 +1,5 @@
-/* Blog post rendering */
-var blogPosts = [
-  { title: "Why Your ML System Will Fail in Production (And How to Prevent It)", description: "Data pipelines break. Models drift silently. Deployment patterns that actually survive the real world.", href: "docs/blog/2026/ml-production.html", date: "2026-01-01", category: "ML Engineering", readingTime: "7 min" },
-  { title: "The Model That Passed Every Test and Failed in Production", description: "Hard-won lessons from late-night pages, silent model failures, and pipelines that looked fine until they weren't.", href: "docs/blog/2026/mlops-lessons.html", date: "2026-01-02", category: "MLOps", readingTime: "8 min" },
-  { title: "The Hidden Cost of Transformer Inference (And How KV Caching Fixes It)", description: "Why naive decoding is expensive, how KV caching turns O(n\u00B2) into O(n), and what it takes to serve LLMs at scale.", href: "docs/blog/2026/transformers-kv-caching.html", date: "2026-01-03", category: "LLM Engineering", readingTime: "6 min" },
-  { title: "Why I Serve PyTorch Models with Rust Instead of Python", description: "Sub-millisecond latency, zero GC pauses, and the surprising ergonomics of tch-rs and Axum.", href: "docs/blog/2026/rust-torch-serving.html", date: "2026-01-04", category: "ML Production", readingTime: "5 min" }
-];
+/* Blog post rendering (data from js/blog-data.js) */
+var blogPosts = window.blogPosts || [];
 
 var gridB = document.getElementById('blogGrid');
 if (gridB) {
@@ -33,7 +28,7 @@ function toggleMoreEndpoints() {
   }
 }
 // expose for onclick
-window.toggleMoreEndpoints = typeof toggleMoreEndpoints !== 'undefined' ? toggleMoreEndpoints : function() {};
+window.toggleMoreEndpoints = toggleMoreEndpoints;
 
 /* Uptime counter */
 var startTime = Date.now();

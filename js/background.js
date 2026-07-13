@@ -1,4 +1,16 @@
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+/* Classic script (not a module) so it also works when the site is opened
+   via file:// — local module files are blocked by CORS, but dynamic
+   import() of an https URL is allowed. */
+(async () => {
+
+let THREE;
+try {
+  THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
+} catch (_e) {
+  const bg = document.getElementById('bg');
+  if (bg) bg.style.display = 'none';
+  return;
+}
 
 const canvas = document.getElementById('bg');
 const scene = new THREE.Scene();
@@ -9,7 +21,8 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true })
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
 
-const geometry = new THREE.IcosahedronGeometry(1.6, 64);
+const detail = window.innerWidth < 768 ? 32 : 64;
+const geometry = new THREE.IcosahedronGeometry(1.6, detail);
 const material = new THREE.ShaderMaterial({
   uniforms:{
     time:{ value:0 },
@@ -51,12 +64,12 @@ window.addEventListener('mousemove', (e) => {
   mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
 });
 
-function animate(t){
+// Single animation loop; started/stopped via start()/stop() so toggles
+// and visibility changes never spawn a second concurrent loop.
+let rafId = null;
+
+function frame(t){
   material.uniforms.time.value = t*0.001;
-  if(prefersReducedMotion){
-    renderer.render(scene, camera);
-    return;
-  }
   if(perfMode){
     mesh.rotation.x += 0.2 + Math.sin(t*0.01)*0.1;
     mesh.rotation.y += 0.3 + Math.cos(t*0.01)*0.1;
@@ -73,32 +86,60 @@ function animate(t){
     camera.position.y = 0;
   }
   renderer.render(scene,camera);
-  requestAnimationFrame(animate);
+  rafId = requestAnimationFrame(frame);
 }
-animate(0);
+
+function start(){
+  if (rafId !== null || prefersReducedMotion) return;
+  rafId = requestAnimationFrame(frame);
+}
+function stop(){
+  if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; }
+}
+function renderOnce(){ renderer.render(scene, camera); }
+
+start();
+if (prefersReducedMotion) renderOnce();
+
+// Don't burn GPU while the tab is hidden.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stop(); else start();
+});
 
 window.addEventListener('resize',()=>{
   camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth,window.innerHeight);
+  if (prefersReducedMotion) renderOnce();
 });
 
-window.addEventListener('scroll',()=>{ camera.position.z = 6 + window.scrollY*0.002; });
+window.addEventListener('scroll',()=>{
+  camera.position.z = 6 + window.scrollY*0.002;
+  if (prefersReducedMotion) renderOnce();
+});
 
 window.togglePerf = ()=> {
   perfMode = !perfMode;
-  if (prefersReducedMotion) return;
-  if (perfMode) requestAnimationFrame(animate);
+  if (!perfMode) applyThemeColors(document.body.dataset.theme);
+  if (prefersReducedMotion) renderOnce();
 };
 
-window.toggleTheme = ()=>{
-  const dark = document.body.dataset.theme==='dark';
-  document.body.dataset.theme = dark?'light':'dark';
-  if(dark){
+function applyThemeColors(theme){
+  if (theme === 'light') {
     material.uniforms.colorA.value.set(0.15,0.15,0.15);
     material.uniforms.colorB.value.set(0.9,0.9,0.9);
   } else {
     material.uniforms.colorA.value.set(0.9,0.6,1.0);
     material.uniforms.colorB.value.set(0.15,0.15,0.15);
   }
-};
+}
+
+applyThemeColors(document.body.dataset.theme);
+if (prefersReducedMotion) renderOnce();
+
+document.addEventListener('themechange', (e) => {
+  applyThemeColors(e.detail.theme);
+  if (prefersReducedMotion) renderOnce();
+});
+
+})();

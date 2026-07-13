@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Zero to Deployed on a €0 Bill: Teaching Cloud to TU Delft Students — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Designing a hands-on GCP course for university students: nine exercises from FastAPI to auto-deploy, engineered to fit entirely inside free tiers." />
+  <meta property="og:title" content="Zero to Deployed on a €0 Bill: Teaching Cloud to TU Delft Students" />
+  <meta property="og:description" content="Nine exercises, one CI/CD pipeline, zero credit cards: how a GCP intro course for students was designed around free tiers and professional tooling." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/teaching-cloud-tu-delft.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/teaching-cloud-tu-delft.html" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Zero to Deployed on a €0 Bill: Teaching Cloud to TU Delft Students</h1>
+  <p><em>July 2026 · 8 min read</em></p>
+
+  <p>The brief I set myself was simple to state and annoying to satisfy. Take university students who can write Python, and get every one of them to a personal API running in the cloud, deploying automatically on every commit. Without a single credit card entering the story.</p>
+
+  <p>That last constraint is the whole design. Students don't have corporate accounts. A course that begins with "first, set up billing" has already lost the room, and one that might surprise a student with a €40 bill is irresponsible. So the course I built for TU Delft students treats free tiers not as a nice-to-have but as a hard requirement that shapes every technical choice.</p>
+
+  <h2>Nine exercises, one continuous artifact</h2>
+
+  <p>The course is nine progressive exercises, and the crucial property is that they build <em>one thing</em>. Not nine toy examples. A single FastAPI service that each exercise makes more real.</p>
+
+  <p>The arc deserves spelling out, because the ordering is doing pedagogical work. Exercise one is the API itself. Three endpoints (root, health, version), Pydantic response models, type hints everywhere, and configuration through pydantic-settings reading environment variables. That last one is planted early on purpose, so that by the time containers arrive, "config comes from the environment" is already muscle memory rather than a new idea arriving at the same time as Dockerfiles. Exercise two is testing with pytest, async support and coverage included. Three introduces uv for dependency management. Four containerizes the app, and students complete a partial Dockerfile rather than copy a finished one. Five wires GitHub Actions to run quality checks on every push. Then the cloud half: six pushes the image to Artifact Registry, seven deploys it to Cloud Run by hand, eight automates the whole path so a push deploys itself, and nine hardens what now exists. Security, observability, the topics that only make sense once there's something real to protect.</p>
+
+  <p>By the end, a student's repository is a small but genuine production setup, and the final state has a property I care about:</p>
+
+  <pre class="mermaid">
+flowchart LR
+    PUSH["git push"] --> QC["GitHub Actions&lt;br/&gt;ruff lint · ruff format&lt;br/&gt;mypy · pytest"]
+    QC -->|all green| BUILD["docker build"]
+    BUILD --> AR["Artifact Registry"]
+    AR --> CR["Cloud Run&lt;br/&gt;(scale to zero)"]
+    CR --> HC["deploy health check&lt;br/&gt;GET /health"]
+    QC -.->|red| STOP["pipeline stops:&lt;br/&gt;broken code never ships"]
+    WIF["Workload Identity Federation&lt;br/&gt;no service-account keys, anywhere"] -.authenticates.-> AR
+  </pre>
+
+  <p>Every commit they push triggers quality checks, builds a container, ships it, and then curls its own <code>/health</code> endpoint to confirm the thing that deployed actually runs. That last small step separates deployment from hope. The moment a student pushes a change and watches their live URL update on its own is the moment the course actually lands.</p>
+
+  <blockquote class="pullquote">You can lecture about CI/CD for an hour, or you can let someone feel it once.</blockquote>
+
+  <h2>Teach the tools professionals actually use</h2>
+
+  <p>An early decision: no teaching-only technology. Everything in the stack is what they'd meet at a decent engineering shop in 2026. FastAPI, pytest, uv (watching pip users meet uv's install speed is reliable entertainment), ruff and mypy in CI, Docker, GitHub Actions, Cloud Run. The argument for this is respect. Students can smell a sandbox.</p>
+
+  <p>The lint configuration is itself a tiny syllabus. Ruff runs with rule families beyond the default errors. Bugbear for the mistakes that pass tests and fail at 2am, comprehension and upgrade rules, simplification hints. Mypy runs strict. Students meet "the linter is arguing with me" early, in exercise five, on code they wrote themselves. And the resolution process (read the rule, understand why, fix or consciously silence it) is rehearsed as a professional skill rather than an annoyance. The same philosophy runs through the troubleshooting doc, which is a first-class part of the course. Real tools come with real sharp edges, and "read the error, check the docs, fix the config" is the actual curriculum hiding inside every exercise.</p>
+
+  <p>And exercise two ships with one test that fails on purpose. Students' first encounter with pytest is red, not green. Because the skill isn't running tests, it's reading a failure and reasoning backward from the assertion to the cause. A wall of green teaches nothing except which button runs the suite. The failing test gets fixed in the first ten minutes and pays for itself all course long. It's a trick I've now smuggled into <a href="agent-course.html">every course I write</a>.</p>
+
+  <h2>Free tiers as an architecture constraint</h2>
+
+  <p>The budget engineering turned out to be some of the most interesting design work. The pillars:</p>
+
+  <p><strong>GitHub Codespaces</strong> as the standard dev environment. 120 free core-hours per month, which on a 2-core machine is 60 hours, several times the course. It also deletes the entire "works on my machine" support queue. Everyone gets an identical Linux box with the toolchain pre-installed, and laptop diversity stops being my problem. In a room of thirty students, environment triage is the difference between teaching and tech support.</p>
+
+  <p><strong>Cloud Run</strong> as the deployment target, and not just for the generous free tier. 180,000 vCPU-seconds a month is far more than a student API sipping requests will ever use, sure. But scale-to-zero is also the pedagogically honest choice. An idle student service costs actual zero, and thirty forgotten course deployments in December cost the same. Any always-on option would slowly bill someone for a tutorial they finished months ago. One shared GCP project hosts all the cloud exercises, so the setup ceremony happens once, in exercise six, instead of once per service.</p>
+
+  <!-- IMAGE SLOT: a student pipeline all green in GitHub Actions, or the GCP billing page showing €0.00 (docs/blog/images/tudelft-pipeline.png) -->
+
+  <p><strong>Workload Identity Federation</strong> for the CI-to-GCP handshake, which I insisted on despite it being the fiddliest setup step in the whole course. The alternative, exporting a service-account key and pasting it into GitHub secrets, is easier to teach and exactly the habit I refuse to install in someone's first cloud experience. Long-lived credentials in CI is how universities end up mining someone else's cryptocurrency. Students configure OIDC trust between GitHub and GCP once, keys never exist, and their very first pipeline is built the way security teams wish all pipelines were.</p>
+
+  <h2>What I'd keep</h2>
+
+  <p>The through-line artifact, without question. One growing project generates a momentum that isolated exercises never find, the same lesson as the narrative structure in my agent course. The free-tier constraint too, and not only for the students' sake. Designing under "this must cost nothing" forced choices (serverless, scale-to-zero, keyless auth, ephemeral dev environments) that are simply <em>good architecture</em>, budget or not. Constraints that sound like austerity keep turning out to be taste.</p>
+
+  <p>There's a decent chance some of these students will one day inherit a real production pipeline. My quiet hope is that when they meet a service-account key pasted into a CI secret, something in the back of their mind, installed in exercise eight on a free tier years earlier, says: wait, we don't do it like that.</p>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://fastapi.tiangolo.com/">FastAPI</a>: The course's web framework. Type hints drive validation and live API docs, which means students' first API teaches Python typing, HTTP and JSON schemas at once. Modern, widely used professionally, and the auto-generated /docs page gives instant visual feedback.</li>
+    <li><a href="https://docs.astral.sh/uv/">uv</a>: A Rust-based Python package and project manager, orders of magnitude faster than pip, with lockfiles by default. Teaching it means teaching reproducible environments, and its speed keeps the toolchain feeling instant on the free 2-core machines.</li>
+    <li><a href="https://docs.astral.sh/ruff/">Ruff</a>: An extremely fast Python linter and formatter that consolidates dozens of older tools. In the course it's the first quality gate in CI, and its named, documented rules make 'the linter is arguing with me' a learnable skill instead of noise.</li>
+    <li><a href="https://mypy-lang.org/">mypy</a>: Static type checking for Python, run in strict mode. It catches the category of bug tests rarely cover (wrong shapes passed between functions) before the code runs, and it makes the type hints from exercise one load-bearing rather than decorative.</li>
+    <li><a href="https://docs.pydantic.dev/latest/concepts/pydantic_settings/">pydantic-settings</a>: Typed configuration loaded from environment variables. It plants the twelve-factor 'config comes from the environment' habit in exercise one, so containerization later changes nothing about how the app is configured.</li>
+    <li><a href="https://cloud.google.com/artifact-registry">Artifact Registry</a>: Google Cloud's container image registry. It's the handoff point of the pipeline: CI pushes images to it, Cloud Run pulls from it, and access is granted by IAM rather than passwords.</li>
+    <li><a href="https://cloud.google.com/run">Cloud Run</a>: Serverless containers with scale-to-zero. The deployment target because an idle student API costs exactly nothing, and because 'give me a container, get a URL' is the shortest path from Docker knowledge to a live service.</li>
+    <li><a href="https://cloud.google.com/iam/docs/workload-identity-federation">Workload Identity Federation</a>: Keyless authentication from GitHub Actions to GCP: the pipeline exchanges a short-lived OIDC token for cloud access, based on a configured trust between the repo and the project. It eliminates exported service-account keys, the most commonly leaked credential in student and professional pipelines alike.</li>
+    <li><a href="https://github.com/features/codespaces">GitHub Codespaces</a>: Browser-based dev environments from a repo config, identical for every student. It removes laptop diversity from the classroom equation, and the free tier covers the course several times over.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

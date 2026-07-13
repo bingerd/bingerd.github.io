@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>The Day I Learned Why Webhooks Need HMAC — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="I built a webhook endpoint with a shared secret in a header and thought I was done. Then I read how HubSpot actually signs requests, and rebuilt the whole thing." />
+  <meta property="og:title" content="The Day I Learned Why Webhooks Need HMAC" />
+  <meta property="og:description" content="From a token in a header to HMAC-SHA256 with replay protection. What building a HubSpot-to-ERP connector taught me about webhook security." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2025/webhook-hmac.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2025/webhook-hmac.html" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>The Day I Learned Why Webhooks Need HMAC</h1>
+  <p><em>December 2025 · 8 min read</em></p>
+
+  <p>The task sounded almost too small to be a project. When a deal in HubSpot hits "Closed Won", copy one field into an ERP system. One webhook, one API call, maybe sixty lines of FastAPI. I had a working version the same afternoon.</p>
+
+  <p>The pipeline itself is the kind of glue work that makes businesses run and never makes conference talks. Sales lives in HubSpot. Finance lives in the ERP. When a deal closes, a project classification field needs to travel from one world to the other, and until this connector existed it traveled by someone remembering to retype it. The requirement was one line: within about a minute of a deal closing, the ERP should know. Event-driven, tiny payload, no batch jobs.</p>
+
+  <p>My first version authenticated the webhook the way I suspect most first versions do. I generated a long random string, put it in an environment variable, configured HubSpot to send it in a custom header, and compared the two:</p>
+
+  <pre><code class="language-python">if x_webhook_token != WEBHOOK_TOKEN:
+    raise HTTPException(status_code=401)</code></pre>
+
+  <p>A shared secret. It felt secure. The endpoint was HTTPS, the token was 64 characters of randomness, nobody was going to guess it. I shipped it and moved on. That version still exists in an older repository, and I've kept it deliberately, the way you keep an old photo with a bad haircut. It works. It even has tests. And it's a security design I'd now politely reject in someone else's code review.</p>
+
+  <p>Then, while setting up the HubSpot side properly (a private app with the minimal <code>crm.objects.deals.read</code> scope, because the connector reads deal properties and needs nothing else), I noticed the settings had a section I'd skipped: request signatures. HubSpot signs every webhook it sends with something called an <code>X-HubSpot-Signature-V3</code> header. I went to the docs expecting a five-minute read. I came out an hour later having understood, for the first time, what my token approach was actually missing.</p>
+
+  <h2>What the token doesn't protect</h2>
+
+  <p>Here's the thing about a static token in a header: it proves the sender knows the secret. That's all it proves. It says nothing about the <em>message</em>.</p>
+
+  <p>If anyone ever captures one request, they now have everything. A misconfigured proxy that logs headers is enough. A debugging session where someone pastes a curl command into a ticket is enough. From that moment they can send my endpoint any payload they like, forever, and every request will look legitimate. They can also take a real request and replay it next week. The token never expires, never changes per request, and doesn't bind to the body at all.</p>
+
+  <p>Think about what that means for this specific endpoint. The payload carries a deal ID and a field value, and the endpoint writes that value into a finance system. With a captured token, an attacker doesn't need to understand anything about my code. They can update ERP records by POST request. The blast radius of "one field sync" is bigger than it looks the moment the destination is a system accountants trust.</p>
+
+  <p>HMAC fixes all three problems at once, which is why every serious webhook provider uses some version of it. The sender computes a signature over the actual request (method, URL, body, timestamp) using the shared secret as the key. The receiver recomputes it and compares. Change one byte of the payload and the signature breaks. Replay an old request and the timestamp gives it away. And the secret itself never travels over the wire.</p>
+
+  <h2>Rebuilding it properly</h2>
+
+  <p>HubSpot's v3 scheme concatenates four things in a fixed order, with no separators, which matters more than you'd think:</p>
+
+  <pre><code class="language-python">raw = method + url + body + timestamp
+digest = hmac.new(secret.encode(), raw.encode(), hashlib.sha256).digest()
+signature = base64.b64encode(digest).decode()</code></pre>
+
+  <p>The verification side rejects a request in three ways before it ever touches business logic, and the whole flow is easier to see than to describe:</p>
+
+  <pre class="mermaid">
+sequenceDiagram
+    participant HS as HubSpot
+    participant EP as FastAPI endpoint
+    participant ERP as ERP system
+    HS->>EP: POST /deal-closed-won&lt;br/&gt;headers: signature-v3, timestamp
+    EP->>EP: headers present?
+    Note over EP: missing → 401
+    EP->>EP: timestamp within 5 min?
+    Note over EP: too old → 401 (replay blocked)
+    EP->>EP: recompute HMAC over&lt;br/&gt;method + url + body + timestamp
+    EP->>EP: compare_digest(expected, received)
+    Note over EP: mismatch → 401 (forgery blocked)
+    EP->>ERP: update project field on deal
+    ERP-->>EP: 200
+    EP-->>HS: 200
+  </pre>
+
+  <p>Missing headers: 401. A timestamp older than five minutes: 401. That second one is the replay protection, a window small enough that a captured request goes stale before an attacker can do much with it. And finally the signature comparison itself:</p>
+
+  <pre><code class="language-python">if not hmac.compare_digest(expected, received):
+    raise HTTPException(status_code=401, detail="Invalid signature")</code></pre>
+
+  <p>That <code>compare_digest</code> instead of <code>==</code> was another small discovery. A normal string comparison returns early at the first mismatched character, and the timing difference is measurable. Given enough requests, an attacker can reconstruct a valid signature byte by byte. <code>compare_digest</code> takes the same time no matter where the strings differ. It costs nothing to use and closes an entire attack class I didn't know existed until I read why the function was in the standard library.</p>
+
+  <blockquote class="pullquote">Reading a webhook signature spec is a compressed history of everything that has gone wrong with webhooks.</blockquote>
+
+  <p>Only after all three gates pass does the boring part run: map the HubSpot property to the ERP field name, wrap it in the ERP's nested element format, POST it with the ERP's own token auth. Two different authentication worlds meet in sixty lines. I verify HubSpot cryptographically because its requests arrive unsolicited. The ERP accepts my token because I initiate that call over TLS to a known host. Same connector, two threat models, and the asymmetry is itself instructive.</p>
+
+  <h2>The bugs that taught me the format</h2>
+
+  <p>Nothing makes you understand a signature scheme like producing the wrong signature over and over. My first attempts failed for reasons that all came down to byte-exactness.</p>
+
+  <p>The URL had to match what HubSpot signed, which is the <code>https://</code> URL, while my app behind a proxy saw <code>http://</code>. One scheme rewrite fixed a mystery that had me re-reading the docs three times. The body had to be the raw bytes as received, not the parsed-and-reserialized JSON, because <code>json.dumps</code> with default settings adds spaces after separators and then the signature is dead. And the timestamp is in milliseconds. I converted it to seconds exactly once, and after that never trusted myself again.</p>
+
+  <p>Each of those failures became permanent in the test suite. Four tests document the whole contract: a correctly signed request passes, a wrong signature is rejected, an expired timestamp is rejected, missing headers are rejected. The valid-signature test is my favorite because it has to <em>be</em> HubSpot. It builds the payload with <code>separators=(",", ":")</code> to get byte-identical JSON, generates a fresh millisecond timestamp, and signs it with the same function the server uses. Writing a legitimate forgery to prove forgery is impossible has a pleasing circularity to it. These are the most useful tests in the repo, because they encode everything I got wrong the first time.</p>
+
+  <h2>Secrets, and where they live</h2>
+
+  <p>The last piece of hygiene: the connector holds two secrets, the webhook signing secret and the ERP token, and neither appears in the repository. They arrive via environment variables, loaded from a <code>.env</code> file locally and injected by the platform in deployment. This sounds like table stakes, and it is. But the v1-versus-v2 comparison sharpened something for me. In the token-header design, the secret <em>is</em> the authentication, so leaking it is total compromise. In the HMAC design, the secret never crosses the network after setup, and even a leaked request log reveals only signatures, useless without the key and stale within five minutes. Good schemes degrade gracefully. Bad ones fail absolutely.</p>
+
+  <h2>Was the token version ever attacked?</h2>
+
+  <p>Almost certainly not. It ran quietly, syncing deal fields into the ERP within a minute of a deal closing, and no one ever tried to forge a request to an obscure endpoint that updates one field. That's not really the point though. The cost of doing it right was an afternoon and about forty lines of code. The cost of doing it wrong is unbounded and invisible. You don't get a notification when someone starts replaying your webhooks.</p>
+
+  <p>What stays with me is how much design is packed into a scheme this small. The timestamp window, the ordered concatenation, the constant-time compare. Each one exists because someone, somewhere, exploited its absence. Worth the hour.</p>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://fastapi.tiangolo.com/">FastAPI</a>: The Python web framework the connector is built on. It turns type-hinted function signatures into request validation and documentation, which is why a sixty-line service can still reject malformed payloads properly. Chosen because a webhook receiver is 90% input validation, and FastAPI makes that the default rather than extra work.</li>
+    <li><a href="https://docs.python.org/3/library/hmac.html">Python hmac module</a>: Standard-library keyed hashing. HMAC mixes a shared secret into a SHA-256 hash of the message, so only someone holding the secret can produce a valid signature, and the secret itself never travels with the request. Its <code>compare_digest</code> function does constant-time comparison, which closes the timing side-channel a normal == would open.</li>
+    <li><a href="https://developers.hubspot.com/docs/guides/apps/authentication/validating-requests">HubSpot request signatures (v3)</a>: HubSpot's spec for how webhooks are signed: concatenate method, URL, raw body and a millisecond timestamp, HMAC-SHA256 it, base64 it. This document is the contract the whole verification layer implements, and the reason the post exists.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

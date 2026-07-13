@@ -30,11 +30,11 @@
   // ==========================================
   // 1. KONAMI CODE: up up down down left right left right b a
   // ==========================================
-  var konamiSeq = [38, 38, 40, 40, 37, 39, 37, 39, 66, 65];
+  var konamiSeq = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
   var konamiPos = 0;
 
   document.addEventListener('keydown', function(e) {
-    if (e.keyCode === konamiSeq[konamiPos]) {
+    if (e.key === konamiSeq[konamiPos] || e.key.toLowerCase() === konamiSeq[konamiPos]) {
       konamiPos++;
       if (konamiPos === konamiSeq.length) {
         konamiPos = 0;
@@ -138,7 +138,8 @@
   // ==========================================
   var matrixBuffer = '';
 
-  document.addEventListener('keypress', function(e) {
+  document.addEventListener('keydown', function(e) {
+    if (e.key.length !== 1) return;
     matrixBuffer += e.key.toLowerCase();
     if (matrixBuffer.length > 10) matrixBuffer = matrixBuffer.slice(-10);
     if (matrixBuffer.includes('matrix')) {
@@ -196,7 +197,8 @@
   // ==========================================
   var helpBuffer = '';
 
-  document.addEventListener('keypress', function(e) {
+  document.addEventListener('keydown', function(e) {
+    if (e.key.length !== 1) return;
     helpBuffer += e.key;
     if (helpBuffer.length > 10) helpBuffer = helpBuffer.slice(-10);
     if (helpBuffer.includes('/help')) {
@@ -255,26 +257,13 @@
   // 5. THEME TOGGLE 10x: toggle dark/light 10 times
   // ==========================================
   var themeToggles = 0;
-  var origToggleTheme = null;
 
-  document.addEventListener('DOMContentLoaded', function() {
-    // Wrap toggleTheme to count
-    var check = setInterval(function() {
-      if (window.toggleTheme && window.toggleTheme !== wrappedToggle) {
-        origToggleTheme = window.toggleTheme;
-        window.toggleTheme = wrappedToggle;
-        clearInterval(check);
-      }
-    }, 200);
-  });
-
-  function wrappedToggle() {
-    if (origToggleTheme) origToggleTheme();
+  document.addEventListener('themechange', function() {
     themeToggles++;
     if (themeToggles >= 10 && !achievements['dark10']) {
       unlock('dark10', 'Achievement unlocked: Night owl');
     }
-  }
+  });
 
   // ==========================================
   // 6. SCROLL TO BOTTOM

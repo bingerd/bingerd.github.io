@@ -11,7 +11,7 @@ Personal portfolio site for **Bing Tan** — Machine Learning Engineer.
 - **Backprop Runner** — a 3D endless runner game themed around gradient descent (Three.js + Rapier physics)
 - **Neural Field Particles** — 8,000 particles advected through a continuous vector field
 - **ML Playground** — 10 fun prediction endpoints (shorts weather, coffee need, LLM sanity check, etc.)
-- Blog posts on ML systems, MLOps, transformers, and Rust-based serving
+- 10 blog posts grounded in real projects: on-device AI, agentic systems, MLOps, homelab GitOps, cloud cost tricks, and webhook security
 
 ## Tech stack
 
@@ -19,6 +19,8 @@ Personal portfolio site for **Bing Tan** — Machine Learning Engineer.
 - **Three.js** (v0.160) — 3D graphics and custom GLSL shaders
 - **Rapier 3D** — physics engine for the game
 - **Vanilla JS** — no frameworks, no bundlers
+- **Mermaid** (v11, CDN, loaded lazily) — architecture diagrams in blog posts
+- **highlight.js** (v11, CDN, loaded lazily) — syntax highlighting in blog posts
 - **ESLint + Node test runner** — dev-only quality tools
 
 ## Project structure
@@ -30,7 +32,10 @@ Personal portfolio site for **Bing Tan** — Machine Learning Engineer.
 │   ├── style.css                       # Main site styles
 │   └── blog.css                        # Shared blog post styles
 ├── js/
-│   ├── background.js                   # Three.js 3D background (ES module)
+│   ├── theme.js                        # Shared dark/light theme (persisted)
+│   ├── blog-data.js                    # Blog post metadata (index grid + prev/next nav)
+│   ├── post-extras.js                  # Syntax highlighting, copy buttons, progress bar, prev/next
+│   ├── background.js                   # Three.js 3D background (classic script, dynamic-imports three.js so file:// works)
 │   ├── predictions.js                  # ML playground endpoint logic
 │   ├── prediction-logic.js             # Pure computation functions (testable)
 │   └── main.js                         # Blog rendering and utilities
@@ -38,11 +43,9 @@ Personal portfolio site for **Bing Tan** — Machine Learning Engineer.
 │   └── backprop-runner-canyon.html      # Backprop Runner game
 ├── animations/
 │   └── neural-field-particles.html     # Particle field visualization
-├── docs/blog/2026/                     # Blog posts
-│   ├── ml-production.html
-│   ├── mlops-lessons.html
-│   ├── rust-torch-serving.html
-│   └── transformers-kv-caching.html
+├── docs/blog/                          # Blog posts (by year)
+│   ├── 2025/webhook-hmac.html
+│   └── 2026/                           # atlas-context-engineering, agent-course, receipt-agent, ...
 ├── tests/
 │   ├── predictions.test.js             # Unit tests for prediction logic
 │   └── validate-html.test.js           # Structural validation tests

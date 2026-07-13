@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Teaching an AI Agent to Read Receipts (and Politely Decline Your Netflix Subscription) — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Building an agentic expense assistant inside a corporation: vision models reading receipts, a two-tier agent runtime, safety gates before money moves, and how you evaluate a conversation." />
+  <meta property="og:title" content="Teaching an AI Agent to Read Receipts (and Politely Decline Your Netflix Subscription)" />
+  <meta property="og:description" content="An agentic expense assistant in production: Gemini vision, callback safety gates, Firestore session juggling, and 25 conversations as a test suite." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/receipt-agent.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/receipt-agent.html" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Teaching an AI Agent to Read Receipts (and Politely Decline Your Netflix Subscription)</h1>
+  <p><em>June 2026 · 11 min read</em></p>
+
+  <p>Expense reports are the perfect agent problem, and I'll defend that. The input is a crumpled photo of a receipt. The output is structured data in an ERP system. In between sits a stack of company policy, a human who wants to spend zero minutes on this, and consequences if it goes wrong. Because the output is literally money.</p>
+
+  <p>This year I worked on an internal innovation project at Xebia: an expense assistant that lives in the company chat. You photograph a receipt, share it with the bot, have a short conversation, and the expense lands in the finance system. Along the way it reads the receipt with a vision model, checks what you're claiming against expense policy, and sometimes (this became my favorite part) has to tell a colleague, kindly, that their streaming subscription is not a business expense.</p>
+
+  <h2>Two tiers, because chat and agents disagree about state</h2>
+
+  <p>The architecture splits into two tiers, and the split exists because chat platforms and agent runtimes have opposite opinions about state.</p>
+
+  <p>Chat webhooks want a stateless receiver. Fast acknowledgments, retries, no memory. Agents are the opposite. A multi-turn conversation about correcting a receipt's date <em>is</em> state. So the ingress is a slim stateless proxy on Cloud Run that receives webhooks, and the agent itself, built on Google's Agent Development Kit, runs on Vertex AI Agent Engine, which owns sessions properly. One request through the system looks like this:</p>
+
+  <pre class="mermaid">
+sequenceDiagram
+    participant U as Employee
+    participant Chat as Chat platform
+    participant CR as Cloud Run proxy&lt;br/&gt;(stateless)
+    participant FS as Firestore
+    participant AE as Agent Engine&lt;br/&gt;(stateful)
+    participant T as Tools
+    U->>Chat: photo of receipt
+    Chat->>CR: webhook event
+    CR->>FS: thread_id → session_id?&lt;br/&gt;(per-thread lock, LRU cache)
+    FS-->>CR: session found / created
+    CR->>AE: run agent turn (session)
+    AE->>T: add_pending_expense(receipt)
+    T->>T: vision parse: merchant, date, total
+    T->>FS: hash check — duplicate?
+    AE-->>CR: "€23.50 at that ramen place, right?"
+    CR-->>Chat: reply in thread
+    Note over U,AE: ...corrections, policy checks...
+    U->>Chat: "ok, submit"
+    AE->>T: submit_pending_expenses()
+    Note over T: before_tool_callback:&lt;br/&gt;explicit confirmation? only then run
+    T->>T: POST to finance system
+  </pre>
+
+  <p>The glue between the tiers is the mapping from chat thread to agent session, kept in Firestore. This little component grew more engineering than I expected. Chat platforms happily deliver events concurrently, so two messages in a fresh thread can race to create "the" session. Solved with per-thread locks. And a Firestore read on every single message adds latency the user feels, so an LRU cache (500 entries, one-hour TTL) sits in front. A cache, locks, and eviction policy for what began as "just store the thread ID somewhere". Agent state is where the boring engineering hides.</p>
+
+  <p>Everything runs twice, of course. Separate dev and prod projects, same deployment shape, with CI running lint, type checks and tests before anything ships. And the finance-system client has a mock twin that mimics its API without moving money, which is what lets the whole conversation flow be tested end to end by machines and demoed to stakeholders without anyone accidentally expensing a test ramen dinner.</p>
+
+  <h2>The agent's hands</h2>
+
+  <p>The agent's capabilities are a small set of tools around one core object, the pending expense. Parse a receipt into one, correct a field, list them, merge several receipts into a single claim, discard one, and finally submit. The vision parsing is the least of it. Gemini reads merchants, dates and totals off photographed receipts (JPEGs, PNGs, PDFs) with very little coaxing. The conversation design around correction mattered far more, because the failure mode isn't "can't read the receipt". It's "read it slightly wrong and the human needs a frictionless way to say so".</p>
+
+  <p>The merge tool earns a special mention because it came straight from watching real behavior. A conference trip produces four receipts that belong on one claim, and the natural human instinct is to dump all four photos into the chat at once. An agent that forced four separate submissions would be correct and infuriating. <code>combine_pending_expenses</code> exists because the tool surface should match how people actually behave, not how the ERP's data model wishes they would.</p>
+
+  <p>Two mechanisms carry the safety load. First, duplicate detection. Every receipt image is hashed and checked against previously submitted hashes per employee. Because the most likely expense fraud isn't fraud, it's a colleague accidentally sharing the same photo twice a week apart, and the agent should catch that without anyone getting embarrassed.</p>
+
+  <p>Second, the submit gate. Submission to the finance system is the one irreversible action, so it's wrapped in a <code>before_tool_callback</code> that refuses to run unless the user has explicitly confirmed in that conversation. The LLM cannot talk itself into submitting. The gate is code, not prompt.</p>
+
+  <blockquote class="pullquote">The model proposes. Deterministic code disposes.</blockquote>
+
+  <p>That's the pattern I'd generalize from this whole project. Anything that moves money, deletes data, or emails a human gets a hard gate outside the model's reach. Policy checking, by contrast, lives <em>in</em> the prompt. The expense rules are a markdown file loaded into the agent's instructions at boot, so finance can edit a document instead of filing a ticket against my code, and the agent explains rejections in natural language, citing the actual rule. Policy-in-prompt, gates-in-code. Each in the layer that suits it. Deterministic mappings stay in code too. The translation from expense category to the finance system's ledger accounts is a static table, because a language model should never be creative about which ledger your ramen lands in.</p>
+
+  <p>Around the agent sits a small plugin stack that does the unglamorous production work. Uploaded files are persisted as artifacts automatically. A context filter keeps conversation history from dragging irrelevant baggage into each turn. Structured logging captures every step. And a reflect-and-retry plugin gives the agent one shot at noticing its own tool-call errors and correcting course before a human sees the failure. None of these are features. All of them are the difference between a bot colleagues use twice and one they keep using.</p>
+
+  <h2>How do you unit-test a conversation?</h2>
+
+  <p>Then comes the question that defines whether an agent is a demo or a product. The receipt parser works. The tools work. But the <em>behavior</em>? Does it warn on a policy violation but still let a human decide? Does it refuse the clearly personal expense? Does it stay polite on the third correction? How do you regression-test that?</p>
+
+  <p>Our answer became an evalset. 25 scripted conversations, each a full multi-turn scenario with the receipt attachments, the user's messages, and the expected behavior at each turn. The names read like a policy FAQ. The over-limit dinner that should be flagged but not blocked. The personal subscription that should be declined outright. The receipt older than the claiming window. Each case is a small story with a correct ending, and together they're nine hundred lines of JSON that constitute the agent's behavioral contract.</p>
+
+  <!-- IMAGE SLOT: redacted chat screenshot of the bot confirming or declining an expense — check internal shareability first (docs/blog/images/receipt-chat.png) -->
+
+  <p>Grading is rubric-based, done by a judge model that is deliberately <em>not</em> the model powering the agent, scoring relevance and helpfulness against a 0.8 threshold. Separate judge matters. Models grade their own family's phrasing generously, and you want the grader arguing with the agent, not agreeing with it.</p>
+
+  <p>The supporting trick that made the suite livable: VCR-style cassettes. LLM interactions are recorded once and replayed deterministically in CI, keyed by request hash. The hashing matters, because storing full prompts would bloat every cassette and leak receipt contents into test fixtures. Fast tests run without an API key and without flakiness. The genuinely-live tests are marked slow and run when it matters. Change a prompt and you re-record with <code>--record-mode=rewrite</code>. And a re-recording is itself a signal, a diff that says "behavior changed here, was that intended?".</p>
+
+  <p>Twenty-five conversations is not many. It's also more behavioral coverage than most agents in production have today, and the discipline of writing them changed the agent's design more than once. Scenarios that were hard to script turned out to be scenarios where the intended behavior was genuinely undecided. The evalset became the place where the team argued about what the agent <em>should</em> do, which is a much better venue for that argument than production.</p>
+
+  <h2>What the corporation taught the agent</h2>
+
+  <p>Building agents inside a company adds constraints no framework tutorial mentions, and they shaped real decisions. Receipts are personal data, so storage got deliberate retention tiers. Receipt images live 90 days and then vanish. Observability data lives a year in production, long enough to investigate a disputed expense. Traces live a month. Each number is a small negotiation between debuggability and data minimization, decided per data class rather than defaulting to "keep everything forever", which is what happens when nobody decides.</p>
+
+  <p>Everything the agent does is traced end-to-end with OpenTelemetry, because "the AI decided" is not an acceptable answer to a finance department asking why an expense was submitted. And the demo-to-trust pipeline runs through the eval suite. Showing stakeholders 25 named scenarios with pass marks moved more skepticism than any live demo did. A demo shows the happy path once. An evalset shows you went looking for the unhappy ones.</p>
+
+  <p>The expense assistant is in production now. Colleagues photograph receipts, argue briefly with a robot about dates, and get reimbursed. And somewhere in the eval suite, a scripted user tries to expense a personal subscription every single CI run, and the agent politely declines. Forever. There are worse legacies.</p>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://google.github.io/adk-docs/">Google Agent Development Kit (ADK)</a>: The framework the expense agent is built with. Its tool abstraction maps cleanly onto the pending-expense operations, and its callback hooks (like <code>before_tool_callback</code>) are what make the code-level submit gate possible: interception points that the model cannot bypass.</li>
+    <li><a href="https://cloud.google.com/vertex-ai/generative-ai/docs/agent-engine/overview">Vertex AI Agent Engine</a>: Google's managed runtime for deployed agents. It owns sessions and state server-side, which is exactly the part you don't want to reinvent. The two-tier design exists because Agent Engine holds the stateful half while Cloud Run holds the stateless webhook half.</li>
+    <li><a href="https://ai.google.dev/gemini-api/docs">Gemini (vision + text)</a>: The multimodal model doing the actual work: reading merchants, dates and totals off photographed receipts and holding the correction conversation. Multimodality is the enabler here, since the input is fundamentally an image, not text.</li>
+    <li><a href="https://firebase.google.com/docs/firestore">Cloud Firestore</a>: A serverless document database, used for the thread-to-session mapping and duplicate-detection hashes. Chosen because this data is small, keyed lookups dominate, and nobody wants to operate a database for what is essentially a distributed hashmap with persistence.</li>
+    <li><a href="https://vcrpy.readthedocs.io/">VCR.py</a>: Records HTTP interactions once and replays them in later test runs. Applied to LLM calls, it turns nondeterministic, paid, slow API interactions into deterministic, free, fast test fixtures. It solves the biggest practical problem of agent testing: CI that doesn't flake and doesn't bill.</li>
+    <li><a href="https://opentelemetry.io/">OpenTelemetry</a>: End-to-end tracing across the proxy, the agent and the tools. In a system that submits expenses, the audit question is 'why did this happen', and spans are the answer that satisfies both engineers and a finance department.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

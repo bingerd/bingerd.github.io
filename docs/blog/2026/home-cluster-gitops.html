@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Home Runs on Git Push — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="A k3s cluster on an Intel NUC, Argo CD watching a Git repo, and a house full of services that deploy themselves. Notes from a year of GitOps at home." />
+  <meta property="og:title" content="My Home Runs on Git Push" />
+  <meta property="og:description" content="k3s on a NUC, Argo CD with selfHeal on, and why my smart home deploys like a production system." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/home-cluster-gitops.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/home-cluster-gitops.html" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>My Home Runs on Git Push</h1>
+  <p><em>April 2026 · 9 min read</em></p>
+
+  <p>Somewhere in my living room there's an Intel NUC, an i5 with 32 GB of RAM, about the size of a thick sandwich, and it runs my house. The smart home hub, a Minecraft server, my personal finance tracker, the tunnel that exposes any of it to the internet. And the only way anything gets deployed to it is <code>git push</code>.</p>
+
+  <p>Not because it has to be that way. Because I once SSH'd into a previous home server to "quickly fix" something, and eight months later had no idea what was running on it, why, or how to rebuild it. That server died in a power cut and took its undocumented configuration with it. The NUC is my act of repentance.</p>
+
+  <!-- IMAGE SLOT: photo of the actual NUC in the living room (docs/blog/images/nuc.jpg) -->
+
+  <h2>The stack, bottom to top</h2>
+
+  <p>The base is <a href="https://k3s.io">k3s</a>. Kubernetes with the enterprise fat trimmed, a single binary that runs happily on one machine and comes with Traefik for ingress out of the box, running on Ubuntu Server LTS. On top of that, Argo CD watches a Git repository. That repo, with its manifests, Kustomize overlays and Argo application definitions, <em>is</em> the cluster in every meaningful sense. The NUC is just where the repo happens to be running right now.</p>
+
+  <p>Argo talks to GitHub over SSH with a read-only deploy key, which is a small choice with a pleasant shape. The cluster can read its own definition but can't modify it. Truth flows one direction, from Git to hardware, never back. There's also an optional in-cluster Docker registry for caching images locally. On a home connection, pulling a fat image once instead of five times is the difference between "rollout" and "evening activity".</p>
+
+  <p>The two Argo settings that make it GitOps rather than "deployment scripts with extra steps":</p>
+
+  <pre><code class="language-yaml">syncPolicy:
+  automated:
+    prune: true
+    selfHeal: true</code></pre>
+
+  <p><code>prune</code> means deleting a manifest from Git deletes the resource from the cluster. The repo isn't additive, it's authoritative. <code>selfHeal</code> means if anything in the cluster drifts from what Git says, Argo puts it back. Together they enforce the discipline I couldn't maintain by willpower. Kubectl-edit something by hand and the cluster quietly reverts it within minutes. The first time selfHeal undid my "quick fix" I was annoyed. The second time, I realized it was the entire point.</p>
+
+  <blockquote class="pullquote">The repo can't lie about what's running, because nothing else is allowed to decide what's running.</blockquote>
+
+  <p>The sync policy also carries the settings you only appreciate after your first bad evening. Retries with exponential backoff (5 seconds, doubling, capped at 3 minutes, 5 attempts), so a flaky image pull doesn't wedge an application into a failed state forever. And <code>CreateNamespace=true</code> per application, so each app materializes complete with its own namespace. Every app is its own Argo application in its own namespace. When I inevitably break one, the blast radius is a namespace, and <code>kubectl get pods -n</code> tells a story about exactly one service.</p>
+
+  <h2>What actually runs on it</h2>
+
+  <p>Each app lives in its own folder with a Kustomize base and dev/prod overlays. The current residents:</p>
+
+  <p><strong>Home Assistant</strong> with a Matter server sidecar. The smart home brain, and enough of a story that it gets <a href="home-assistant-k8s.html">its own post</a>. <strong>A Minecraft server</strong>, fronted by mc-router so multiple instances can share one port, with a small FastAPI controller that can scale it to zero when nobody's playing. Same killswitch philosophy as <a href="minecraft-server-killswitch.html">its cloud twin</a>. <strong>Firefly III</strong> for personal finance. A <strong>Cloudflare tunnel</strong> for getting traffic in without opening a single port on my router, since the cluster dials out and Cloudflare routes in, so my home IP stays unpublished. And a DDNS updater keeping DNS honest about where home is this week.</p>
+
+  <!-- IMAGE SLOT: Argo CD UI showing the app tiles all green/synced (docs/blog/images/argo-apps.png) -->
+
+  <p>The dev/prod overlay split sounds absurd for a home cluster. A staging environment for my light switches? But the numbers explain it. The dev overlays run everything at minimal requests, about 550 millicores and a gibibyte of RAM across three apps, so I can trial an upgrade of anything without budging the real services. Prod overlays run the same manifests with real limits, about 2.25 CPUs and 3.5 GiB. Same base, two <code>kustomization.yaml</code> files, and upgrades get rehearsed before they touch the house. The overhead of the platform itself (k3s, Argo, Traefik) idles around 2 CPUs and 1.5 GiB. Real, but on a 32 GB NUC, rent I'm comfortable paying for a house that redeploys itself.</p>
+
+  <h2>The update loop</h2>
+
+  <p>The part that quietly delights me is how application updates flow end to end without me touching the cluster:</p>
+
+  <pre class="mermaid">
+flowchart LR
+    DEV["me: git push&lt;br/&gt;(app repo)"] --> CI["GitHub Actions&lt;br/&gt;build + test"]
+    CI --> IMG["push image&lt;br/&gt;to registry"]
+    CI --> KUS["kustomize edit set image&lt;br/&gt;commit to cluster repo"]
+    KUS --> REPO["home-cluster-gitops&lt;br/&gt;(the source of truth)"]
+    REPO --> ARGO["Argo CD detects commit"]
+    ARGO --> K3S["k3s on the NUC&lt;br/&gt;rolling update"]
+    ARGO -.selfHeal / prune.-> K3S
+  </pre>
+
+  <p>The apps with their own source repos build container images in CI, and the last step of their pipeline is a commit to the cluster repo:</p>
+
+  <pre><code class="language-bash">kustomize edit set image myapp=registry/myapp:v1.4.2
+git commit -am "chore: bump myapp to v1.4.2"
+git push</code></pre>
+
+  <p>Argo notices the commit, syncs, and rolls the deployment. No SSH, no kubectl from a laptop, no "which version is running?". The answer is always <code>git log</code>. When an update breaks something, the rollback is <code>git revert</code>, which means every outage automatically comes with a paper trail of exactly what changed and when I un-changed it.</p>
+
+  <p>Notice what the pipeline never does: it never talks to the cluster. CI's only privilege is committing to a Git repo. The NUC pulls, nothing pushes to it. For a machine sitting inside my home network, that inversion is the security model. There are no cluster credentials in GitHub to leak, because there are none there at all.</p>
+
+  <h2>Is this overkill? Obviously. And yet.</h2>
+
+  <p>Kubernetes for a house is like a gantry crane for hanging a picture frame. Nobody disputes the overkill. But the practices it drags in are the actual payload. Everything is declared. Everything is versioned. Disaster recovery is "install k3s, point Argo at the repo, wait." When the NUC eventually dies, and it will, they always do, the plan is a hardware purchase and twenty minutes. Not eight months of archaeology.</p>
+
+  <p>There's also the honest reason: this cluster is a gym. Kustomize overlay quirks, Argo sync behavior, Traefik ingress rules, resource-limit tuning on constrained hardware. I get to break all of it at home, where the blast radius is my own light bulbs, instead of learning it live on a client's production cluster. Half the patterns in this post (deploy keys, per-app namespaces, retry backoff tuning) I understood properly only after they bit me here first, at a cost of one annoyed evening instead of one incident report. The house is the test environment. It just happens to also be where I live.</p>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://k3s.io/">k3s</a>: A single-binary Kubernetes distribution built for small environments. It strips legacy cloud-provider code, bundles Traefik for ingress, and runs comfortably on one machine. On a NUC, full Kubernetes would spend the hardware on itself; k3s keeps the overhead near 2 CPUs and 1.5 GiB.</li>
+    <li><a href="https://argo-cd.readthedocs.io/">Argo CD</a>: The GitOps engine: it continuously compares the cluster's live state against manifests in a Git repo and converges the cluster toward the repo. With prune and selfHeal on, Git becomes the only writable interface to the cluster, which is the entire discipline this post is about.</li>
+    <li><a href="https://kustomize.io/">Kustomize</a>: Template-free Kubernetes configuration: a base of plain YAML plus overlays that patch it per environment. It gives the dev/prod split without a templating language, and its <code>edit set image</code> command is the one-line hook CI uses to roll out new versions.</li>
+    <li><a href="https://traefik.io/traefik/">Traefik</a>: The ingress controller (bundled with k3s) that routes incoming HTTP to the right service based on hostname. It watches Kubernetes resources directly, so exposing a new app is a manifest, not a config file on a proxy box.</li>
+    <li><a href="https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/">Cloudflare Tunnel</a>: Outbound-only connectivity: a connector inside the cluster dials out to Cloudflare, and public traffic rides that connection back in. Solves 'expose home services without opening router ports or publishing your home IP', which for a residential cluster is the difference between a hobby and a liability.</li>
+    <li><a href="https://www.firefly-iii.org/">Firefly III</a>: Self-hosted personal finance manager. It's here as a resident of the cluster and a good example of why self-hosting: financial data that never leaves the living room.</li>
+    <li><a href="https://github.com/itzg/mc-router">itzg/mc-router</a>: A Minecraft-aware reverse proxy that routes players to different server instances based on the hostname they connect with. It lets several Minecraft servers share one port and one machine, each with its own address.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

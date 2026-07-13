@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>I Built a 2-Day Course on AI Agents. The Agents Were the Easy Part. — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Learnings from designing an 11-module training on production multi-agent systems: narrative-driven exercises, evaluation as the pivot point, and what it costs to run LLM labs for a classroom." />
+  <meta property="og:title" content="I Built a 2-Day Course on AI Agents. The Agents Were the Easy Part." />
+  <meta property="og:description" content="Designing a hands-on multi-agent training: a fictional coffee company, three kinds of graders, and the moment the course pivots from building to shipping." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/agent-course.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/agent-course.html" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>I Built a 2-Day Course on AI Agents. The Agents Were the Easy Part.</h1>
+  <p><em>May 2026 · 10 min read</em></p>
+
+  <p>This spring I built a two-day training on production multi-agent systems. Eleven modules, about twelve teaching hours, built on Google's Agent Development Kit. I went in expecting the hard part to be explaining agent architectures. I came out having spent most of my design energy on something else entirely: convincing engineers that the interesting problems start <em>after</em> the agent works.</p>
+
+  <h2>Everything happens to a coffee company</h2>
+
+  <p>The first real design decision was narrative. Every module in the course happens to the same fictional company. Cosmic Bean, a coffee roaster with suppliers, an order backlog, and escalating operational problems. Students don't "learn the loop agent pattern". They fix Cosmic Bean's supplier-monitoring process, which happens to need a loop agent.</p>
+
+  <p>I did this because of a failure mode I kept seeing in technical trainings, including my own earlier ones: exercises as isolated puzzles. Students solve them, feel productive, and a week later can't say when they'd reach for the pattern. A continuous story forces every pattern to arrive with its <em>why</em> attached. The transition text between modules literally explains what went wrong at the company that makes the next technique necessary. It also compounds. By module eight, students know the product catalog and the supplier names, so nobody burns ten minutes re-reading a fresh scenario. The fixed cost of world-building pays out eleven times.</p>
+
+  <h2>The shape of the two days</h2>
+
+  <p>The arc runs from "an agent that answers questions" to "an agent fleet you'd trust in production", and the module list is really two courses with a hinge in the middle:</p>
+
+  <pre class="mermaid">
+flowchart TB
+    subgraph BUILD["day 1 — build (what your demo needs)"]
+        s00["s00 ADK refresher&lt;br/&gt;agents, tools, state"] --> s01["s01 workflow patterns&lt;br/&gt;sequential · parallel · loop"]
+        s01 --> s02["s02 custom orchestration&lt;br/&gt;(ships a failing test)"]
+        s02 --> s03["s03 MCP&lt;br/&gt;consume + build servers"]
+        s03 --> s04["s04 agent-to-agent&lt;br/&gt;services, not imports"]
+    end
+    s04 --> s05["s05 EVALUATION&lt;br/&gt;⟵ the pivot point"]
+    subgraph SHIP["day 2 — ship (what your incident needs)"]
+        s05 --> s06["s06 guardrails&lt;br/&gt;PII, rate limits, topics"]
+        s06 --> s07["s07 eval mastery&lt;br/&gt;rubrics · A/B · hallucination"]
+        s07 --> s08["s08 deploy + observe&lt;br/&gt;FastAPI → Cloud Run"]
+        s08 --> s09["s09 testing pyramid&lt;br/&gt;prompt optimization"]
+        s09 --> s10["s10 drift + feedback&lt;br/&gt;capstone"]
+    end
+  </pre>
+
+  <p>Day one earns its keep with the less obvious modules. The MCP module has students both <em>consume</em> a Model Context Protocol server (a filesystem server exposing Cosmic Bean's policies and supplier documents) and understand what building one implies. And those business documents aren't props. They become the ground truth that faithfulness evaluation checks against, two modules later. The agent-to-agent module makes a point I wish more production teams had internalized: the quality-review agent is exposed as a <em>service</em> with its own server, not imported as a library. Two agents that talk over a protocol can be owned by two teams, deployed on two schedules, and replaced independently. It's microservices lessons replayed at agent scale, and teaching it as architecture rather than framework API is what makes it stick.</p>
+
+  <h2>The pivot point</h2>
+
+  <p>Module five is the hinge, and I told students so out loud. <em>The first half of this course is the part your demo needs. The second half is the part your production incident needs.</em></p>
+
+  <p>Designing the evaluation modules taught me more than any other part. The framework distinguishes three kinds of graders, and the taxonomy holds up outside the classroom.</p>
+
+  <p><strong>Code graders</strong> are deterministic checks. Did the agent call the right tool, with valid arguments, no more than N times, does the response contain the order ID. Cheap, fast, zero flakiness, and they catch a shocking share of real regressions. <strong>Model graders</strong> are LLM-as-judge with a rubric, scoring 1 to 5 with reasoning, for the qualities code can't check: tone, helpfulness, whether the refusal was polite. <strong>Faithfulness graders</strong> check whether a response is actually grounded in the documents the agent retrieved, which is the difference between an agent that consults the supplier contract and one that improvises something contract-shaped.</p>
+
+  <p>The uncomfortable part of teaching model graders is that the judge is also an LLM, and it's also flaky. Rather than hide that, I made it the lesson. The eval harness runs every model-graded case three times and takes a majority vote, and score differences under 0.3 are treated as ties, not improvements. Watching students discover that their "prompt improvement" was actually judge noise (same agent, different verdicts) did more for their production instincts than anything I could have said.</p>
+
+  <blockquote class="pullquote">If your eval can't survive being run twice, you don't have an eval.</blockquote>
+
+  <p>The course also hands out a scaling ladder for test suites, because "how many test cases do I need" is the first question every team asks, and the answer is a function of what's at stake. 10 to 20 cases while you're learning what good looks like. 50 to 100 before anything user-facing ships. 100 to 500 once evals gate your CI. And 1000+ when you're choosing between foundation models and the decision is worth real money. The eval suite grows with the consequences of being wrong. Most teams I meet are one rung lower than their blast radius warrants.</p>
+
+  <p>Test design gets the same treatment as grading. The base suite is 17 cases, and then students design their own edge cases against a checklist of the ways users actually behave. Misspelled product names, mixed Dutch-English messages, 500-word rambles with one actual question inside, and a prompt-injection attempt. Because someone in every cohort needs to watch an agent cheerfully obey "ignore your instructions" before guardrails feel urgent rather than theoretical.</p>
+
+  <h2>Traces or it didn't happen</h2>
+
+  <p>Under everything from module five onward sits observability. Arize Phoenix with OpenTelemetry instrumentation, capturing every LLM call, tool call and agent step as spans. The pedagogical payoff is immediate. When a student's agent does something baffling, "read the trace" replaces "add print statements", and multi-turn sessions group so you can watch a conversation degrade turn by turn. By module seven they're using Phoenix's datasets and experiments to version their test collections and compare runs, and the prompt playground to iterate on rubric wording with template variables. The tooling matters less than the reflex it installs: an agent you can't trace is an agent you're debugging by séance.</p>
+
+  <!-- IMAGE SLOT: Phoenix trace screenshot from a course exercise, or a classroom photo (docs/blog/images/course-phoenix.png) -->
+
+  <h2>The intentional bug</h2>
+
+  <p>Module two ships with a failing test. On purpose. It's not documented as such. Students hit it, assume they broke something, investigate, and discover the test was wrong about what the agent should do. The point lands harder than any slide: in agent systems, your test suite encodes <em>opinions</em> about correct behavior, and those opinions can be wrong. Several students told me afterward this was the moment the evaluation material clicked. One told me it was cruel. Both reviews accurate.</p>
+
+  <h2>What nobody tells you about running LLM labs</h2>
+
+  <p>The logistics of a classroom full of people hammering an LLM API deserve their own module, honestly. Costs first, because everyone asks. With Gemini 2.5 Flash, two full days of exercises runs $2 to $5 per student. Fifteen students, $30 to $75 total. Genuinely cheap. <em>If</em> you have quota.</p>
+
+  <p>Because the free tier's 15 requests per minute is not a rounding error away from enough. The classroom needs 2,000+ RPM. Fifteen students each running an A/B comparison (two prompt variants × 17 test cases × 3 judge retries) is a hundred-plus requests per student per exercise, all launched in the same five minutes, because classrooms synchronize. The eval-heavy modules are the spike. I now provision quota the way I'd provision for a load test, which after the modules five and seven experience is exactly what a classroom is.</p>
+
+  <p>The other logistics saver: GitHub Codespaces as the standard environment. 120 free core-hours a month means a 2-core machine covers the whole course without anyone entering a credit card, and "it works on my machine" stops being a sentence anyone says on day one.</p>
+
+  <h2>What I'd tell past me</h2>
+
+  <p>Watching engineers move through the material confirmed the bet behind the pivot-point structure. The build-phase modules went fast. Experienced developers pattern-match orchestration code quickly. The rooms slowed down, in the good way, at evaluation. Rubric design sparked actual arguments about what "helpful" means, and the A/B exercise produced the quietest, most focused half hour of both days.</p>
+
+  <p>Which is the real learning from building the thing. Agents are code, and engineers already know how to learn code. Evaluating agents is judgment under uncertainty, and that's the part worth twelve hours of everyone's time.</p>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://google.github.io/adk-docs/">Google Agent Development Kit (ADK)</a>: The agent framework the course is built on: agents, tools, session state, workflow patterns (sequential, parallel, loop) and a built-in eval harness. Chosen for teaching because it has explicit primitives for exactly the concepts the course needs to name, instead of hiding them behind magic.</li>
+    <li><a href="https://modelcontextprotocol.io/">Model Context Protocol (MCP)</a>: An open standard for connecting tools and data sources to AI applications, over a defined protocol instead of bespoke integrations. In the course, agents consume an MCP filesystem server to read business documents. It solves the N-models x M-tools integration matrix the way USB solved peripherals.</li>
+    <li><a href="https://github.com/a2aproject/A2A">Agent2Agent (A2A) protocol</a>: A protocol for agents calling other agents as services, with their own servers and lifecycles, rather than importing them as libraries. It's the architectural spine of module s04: agents owned by different teams can cooperate without sharing code.</li>
+    <li><a href="https://phoenix.arize.com/">Arize Phoenix</a>: An open-source LLM observability platform: traces of every model and tool call, dataset versioning, experiment comparison, and a prompt playground. In the course it replaces print-statement debugging with 'read the trace', which is the single biggest workflow upgrade for agent development.</li>
+    <li><a href="https://opentelemetry.io/">OpenTelemetry</a>: The vendor-neutral instrumentation standard that produces the spans Phoenix displays. Using it means the tracing knowledge transfers: the same instrumentation feeds any backend a company already runs.</li>
+    <li><a href="https://github.com/features/codespaces">GitHub Codespaces</a>: Cloud dev environments spun up from a repo config. Every student gets an identical Linux machine in the browser, which eliminates environment debugging as a classroom activity. The free tier (120 core-hours/month) covers the whole course.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

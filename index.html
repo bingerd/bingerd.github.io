@@ -9,10 +9,35 @@
 <meta property="og:title" content="Bing Tan — Machine Learning Engineer" />
 <meta property="og:description" content="I reduce loss functions for a living. Production ML systems at scale." />
 <meta property="og:type" content="website" />
+<meta property="og:url" content="https://bngrd.com/" />
+<meta property="og:image" content="https://bngrd.com/og-image.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="canonical" href="https://bngrd.com/" />
+
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 
 <link rel="stylesheet" href="css/style.css" />
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Person",
+  "name": "Bing Tan",
+  "jobTitle": "Machine Learning Engineer",
+  "url": "https://bngrd.com/",
+  "sameAs": [
+    "https://github.com/bingerd",
+    "https://www.linkedin.com/in/bingerd"
+  ]
+}
+</script>
 </head>
 <body data-theme="dark">
+<script src="js/theme.js"></script>
 
 <a href="#about" class="skip-link">Skip to content</a>
 
@@ -22,11 +47,11 @@
   <div class="logo">BING TAN</div>
   <ul>
     <li><a href="#about">About</a></li>
-    <li><a href="#skills">Skills</a></li>
-    <li><a href="#experience">Experience</a></li>
+    <li class="nav-secondary"><a href="#skills">Skills</a></li>
+    <li class="nav-secondary"><a href="#experience">Experience</a></li>
     <li><a href="#projects">Projects</a></li>
     <li><a href="#blog">Writing</a></li>
-    <li><a href="#playground">Playground</a></li>
+    <li class="nav-secondary"><a href="#playground">Playground</a></li>
     <li><a href="#contact">Contact</a></li>
     <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
   </ul>
@@ -38,10 +63,10 @@
     <h1 class="hero-title">I reduce loss functions<br>for a living.</h1>
     <p class="hero-sub">Production ML systems, low-latency inference, and the quiet satisfaction of watching p99 drop. Currently deployed at scale.</p>
     <div class="hero-stats">
-      <div class="stat"><span class="stat-num">2+</span><span class="stat-label">Years in ML</span></div>
-      <div class="stat"><span class="stat-num">50M+</span><span class="stat-label">Daily Predictions</span></div>
-      <div class="stat"><span class="stat-num">42%</span><span class="stat-label">Latency Reduction</span></div>
-      <div class="stat"><span class="stat-num">99.97%</span><span class="stat-label">Uptime (and counting)</span></div>
+      <div class="stat"><span class="stat-num">2+</span><span class="stat-label">Years shipping ML</span></div>
+      <div class="stat"><span class="stat-num">50M+</span><span class="stat-label">Daily predictions, team platform</span></div>
+      <div class="stat"><span class="stat-num">42%</span><span class="stat-label">p99 latency cut — story below</span></div>
+      <div class="stat"><span class="stat-num">7</span><span class="stat-label">Easter eggs on this site</span></div>
     </div>
     <a class="cta" href="#about">Learn More</a>
   </div>
@@ -51,9 +76,9 @@
 
 <section id="about" data-loading-text="Loading training history...">
   <div class="container">
-    <h1>About</h1>
+    <h2 class="section-title">About</h2>
     <div class="model-card">
-      <h2 class="model-card-title">Model Card: bing-tan-v2.6</h2>
+      <h3 class="model-card-title">Model Card: bing-tan-v2.6</h3>
       <dl class="model-card-fields">
         <dt>Architecture</dt>
         <dd>Human (coffee-powered transformer variant)</dd>
@@ -77,7 +102,7 @@
       <p>I get unreasonably excited about shaving milliseconds off inference latency, building systems that fail gracefully instead of silently, and the moment when a training loss curve finally bends.</p>
     </div>
     <div class="about-content">
-      <h2 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.1em; opacity:0.6; margin-top:48px; margin-bottom:24px;">Primary Capabilities</h2>
+      <h3 class="section-label">Primary Capabilities</h3>
       <div class="about-focus">
         <div class="focus-item">
           <h3>Inference & Serving</h3>
@@ -98,7 +123,7 @@
 
 <section id="beliefs" data-loading-text="Loading priors...">
   <div class="container">
-    <h1>How I Think</h1>
+    <h2 class="section-title">How I Think</h2>
     <div class="beliefs">
       <blockquote>The best model is the one that's actually in production.</blockquote>
       <blockquote>Monitoring > accuracy. A model you can't observe is a liability.</blockquote>
@@ -111,7 +136,7 @@
 
 <section id="skills" data-loading-text="Initializing weight matrices...">
   <div class="container">
-    <h1>Tech Stack</h1>
+    <h2 class="section-title">Tech Stack</h2>
     <div class="skills-grid">
       <div class="skill-category">
         <h3>ML Frameworks</h3>
@@ -157,19 +182,19 @@
 
 <section id="experience" data-loading-text="Fetching evaluation metrics...">
   <div class="container">
-    <h1>Case Studies</h1>
+    <h2 class="section-title">Case Studies</h2>
     <div class="case-studies">
       <div class="case-study">
         <h3>How We Cut Inference Latency by 42% (Without Losing Sleep)</h3>
         <div class="case-study-narrative">
           <p>Our inference platform was handling 50M predictions a day on CPU. Latency was "acceptable" — until a traffic spike turned p99 from 200ms to 2 seconds. The on-call page woke me up at 2am.</p>
           <p>By morning I had a prototype: dynamic batching with ONNX Runtime on GPU, predictive autoscaling triggered by Kafka traffic signals, and a fallback to cached predictions when the model was cold. Three weeks later we were in production.</p>
-          <p>p99 dropped 42%. Throughput tripled. And the annual cloud bill got $100k lighter.</p>
+          <p>p99 dropped 42%. Throughput tripled. And the team's annual cloud bill got roughly $100k lighter.</p>
         </div>
         <div class="case-study-metrics">
           <div class="metric"><div class="metric-value">42%</div><div class="metric-label">p99 Latency Reduction</div></div>
           <div class="metric"><div class="metric-value">3.1×</div><div class="metric-label">Throughput Increase</div></div>
-          <div class="metric"><div class="metric-value">$100k</div><div class="metric-label">Annual Cost Savings</div></div>
+          <div class="metric"><div class="metric-value">~$100k</div><div class="metric-label">Annual Cloud Savings</div></div>
         </div>
       </div>
 
@@ -197,15 +222,16 @@
         </div>
       </div>
     </div>
+    <p style="margin-top: 24px; font-size: 0.9rem; opacity: 0.6;">Numbers come from team efforts I contributed to — happy to walk through the details in conversation.</p>
 
     <!-- Loss Curve Timeline -->
     <div class="loss-curve-container">
-      <h2 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.1em; opacity:0.6; margin-bottom:24px; text-align:center;">Training Progress</h2>
+      <h3 class="section-label">Training Progress</h3>
       <svg class="loss-curve" viewBox="0 0 800 200" aria-label="Career timeline visualized as a training loss curve" role="img">
-        <line x1="60" y1="180" x2="760" y2="180" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
-        <line x1="60" y1="20" x2="60" y2="180" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
-        <text x="30" y="30" fill="rgba(255,255,255,0.4)" font-size="11" text-anchor="middle">loss</text>
-        <text x="760" y="195" fill="rgba(255,255,255,0.4)" font-size="11" text-anchor="end">epochs</text>
+        <line x1="60" y1="180" x2="760" y2="180" stroke="currentColor" stroke-opacity="0.15" stroke-width="1"/>
+        <line x1="60" y1="20" x2="60" y2="180" stroke="currentColor" stroke-opacity="0.15" stroke-width="1"/>
+        <text x="30" y="100" fill="currentColor" fill-opacity="0.4" font-size="11" text-anchor="middle">loss</text>
+        <text x="760" y="195" fill="currentColor" fill-opacity="0.4" font-size="11" text-anchor="end">epochs</text>
         <path class="loss-path" d="M 80,40 C 140,38 160,65 220,80 S 320,110 400,125 S 500,148 560,152 S 660,160 740,162" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
         <!-- Milestone dots and labels -->
         <circle cx="80" cy="40" r="5" fill="var(--accent)"/>
@@ -223,7 +249,8 @@
 
 <section id="projects" data-loading-text="Compiling computation graph...">
   <div class="container">
-    <h1>Featured Projects</h1>
+    <h2 class="section-title">Systems I've Worked On</h2>
+    <p class="section-intro">Built with teams at work — the code isn't public, but I'm happy to talk architecture.</p>
     <div class="projects">
       <div class="card visible">
         <h3>LLM Serving Toolkit</h3>
@@ -250,13 +277,13 @@
         <div class="card-tags"><span>Python</span><span>Prometheus</span><span>Grafana</span></div>
       </div>
     </div>
-    <p style="margin-top: 32px; opacity: 0.7;"><a href="https://github.com/bingerd" style="color: var(--accent);">View all projects on GitHub →</a></p>
+    <p style="margin-top: 32px; opacity: 0.7;"><a href="https://github.com/bingerd" style="color: var(--accent);">Personal projects and experiments on GitHub →</a></p>
   </div>
 </section>
 
 <section id="blog" data-loading-text="Backpropagating through memories...">
   <div class="container">
-    <h1>Writing</h1>
+    <h2 class="section-title">Writing</h2>
     <p class="section-intro">Technical deep-dives on ML systems, infrastructure, and lessons from production.</p>
     <div class="blog-grid" id="blogGrid"></div>
   </div>
@@ -266,7 +293,7 @@
   <div class="container">
     <div class="fun-section">
       <div class="fun-header">
-        <h1>ML Playground</h1>
+        <h2 class="section-title">ML Playground</h2>
         <p>Every ML system needs an API. Here are some endpoints I'd never put in production.</p>
       </div>
 
@@ -283,12 +310,12 @@
         </a>
       </div>
 
-      <h2 style="font-size:1.1rem; text-transform:uppercase; letter-spacing:0.1em; opacity:0.6; margin-top:48px; margin-bottom:24px;">Prediction Endpoints</h2>
+      <h3 class="section-label">Prediction Endpoints</h3>
 
       <div class="endpoint-cards" id="endpointCards">
 
         <div class="endpoint-card">
-          <h2>/predict/shorts</h2>
+          <h3>/predict/shorts</h3>
           <p>Will you wear shorts today? Based on weather + thermal comfort.</p>
           <label>Temperature (°C) <input type="number" id="shorts-temp" placeholder="23"></label>
           <label>Humidity (%) <input type="number" id="shorts-humidity" placeholder="40"></label>
@@ -303,7 +330,7 @@
         </div>
 
         <div class="endpoint-card">
-          <h2>/predict/coffee-need</h2>
+          <h3>/predict/coffee-need</h3>
           <p>Do you need coffee right now?</p>
           <label>Heart rate <input type="number" id="coffee-hr" placeholder="75"></label>
           <label>Hours sleep <input type="number" id="coffee-sleep" placeholder="6"></label>
@@ -316,7 +343,7 @@
         </div>
 
         <div class="endpoint-card">
-          <h2>/predict/LLM-sanity</h2>
+          <h3>/predict/LLM-sanity</h3>
           <p>Is your LLM about to hallucinate?</p>
           <label>Prompt length <input type="number" id="llm-prompt" placeholder="120"></label>
           <label>Temperature <input type="number" id="llm-temp" placeholder="0.7" step="0.1"></label>
@@ -330,7 +357,7 @@
       <div class="endpoint-cards endpoint-cards-hidden" id="moreEndpoints">
 
         <div class="endpoint-card">
-          <h2>/meme-generator</h2>
+          <h3>/meme-generator</h3>
           <p>Generate a random ML meme for your stress level.</p>
           <label>Stress level (1-10) <input type="number" id="meme-stress" placeholder="5"></label>
           <label>Framework <input type="text" id="meme-framework" placeholder="PyTorch"></label>
@@ -339,7 +366,7 @@
         </div>
 
         <div class="endpoint-card">
-          <h2>/predict/work-from-home-outfit</h2>
+          <h3>/predict/work-from-home-outfit</h3>
           <p>Perfect remote work outfit based on your day.</p>
           <label>Zoom calls today <input type="number" id="outfit-zoom" placeholder="2"></label>
           <label>Coffee intake (cups) <input type="number" id="outfit-coffee" placeholder="1"></label>
@@ -349,7 +376,7 @@
         </div>
 
         <div class="endpoint-card">
-          <h2>/predict/motivation</h2>
+          <h3>/predict/motivation</h3>
           <p>How motivated will you be today?</p>
           <label>Day of week <input type="text" id="motivation-day" placeholder="Monday"></label>
           <label>Hours slept <input type="number" id="motivation-sleep" placeholder="7"></label>
@@ -359,7 +386,7 @@
         </div>
 
         <div class="endpoint-card">
-          <h2>/predict/pizza-topping</h2>
+          <h3>/predict/pizza-topping</h3>
           <p>Optimal pizza topping combo based on your mood and time.</p>
           <label>Mood <input type="text" id="pizza-mood" placeholder="Happy"></label>
           <label>Time of day <input type="number" id="pizza-hour" placeholder="19"></label>
@@ -369,7 +396,7 @@
         </div>
 
         <div class="endpoint-card">
-          <h2>/predict/pet-reaction</h2>
+          <h3>/predict/pet-reaction</h3>
           <p>Predict your pet's reaction to your new haircut.</p>
           <label>Pet type <input type="text" id="pet-type" placeholder="Cat"></label>
           <label>Haircut length <input type="text" id="pet-haircut" placeholder="Short"></label>
@@ -379,7 +406,7 @@
         </div>
 
         <div class="endpoint-card">
-          <h2>/predict/marathon-performance</h2>
+          <h3>/predict/marathon-performance</h3>
           <p>Predict your marathon finish time (fun version).</p>
           <label>Distance (km) <input type="number" id="marathon-distance" placeholder="10"></label>
           <label>Playlist type <input type="text" id="marathon-playlist" placeholder="Beyoncé"></label>
@@ -390,7 +417,7 @@
         </div>
 
         <div class="endpoint-card">
-          <h2>/predict/perf-mode-chaos</h2>
+          <h3>/predict/perf-mode-chaos</h3>
           <p>How chaotic will Perf Mode get today?</p>
           <label>Coffee level (cups) <input type="number" id="chaos-coffee" placeholder="2"></label>
           <label>Last commit hour <input type="number" id="chaos-commit" placeholder="23"></label>
@@ -409,7 +436,7 @@
 
 <section id="contact">
   <div class="container">
-    <h1>Contact</h1>
+    <h2 class="section-title">Contact</h2>
     <p class="contact-intro">My inference endpoint is always warm. Reach out about ML systems, interesting problems, or your hot take on batch normalization.</p>
     <div class="contact-links">
       <a href="mailto:bxntan@gmail.com" aria-label="Send email to Bing Tan" title="Email">
@@ -451,17 +478,12 @@
 </footer>
 
 <script src="js/predictions.js"></script>
+<script src="js/blog-data.js"></script>
 <script src="js/main.js"></script>
 <script src="js/easter-eggs.js"></script>
-<script type="module" src="js/background.js" onerror="document.getElementById('bg').style.display='none'"></script>
+<script src="js/background.js" defer onerror="document.getElementById('bg').style.display='none'"></script>
 <script>
-  // Fallback theme toggle if background.js fails to load
-  if (!window.toggleTheme) {
-    window.toggleTheme = function() {
-      var dark = document.body.dataset.theme === 'dark';
-      document.body.dataset.theme = dark ? 'light' : 'dark';
-    };
-  }
+  // Fallback if background.js (module, loaded from CDN) fails to load
   if (!window.togglePerf) window.togglePerf = function() {};
 </script>
 </body>

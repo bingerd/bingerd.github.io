@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fitting a Second Brain Into 8,192 Tokens — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Building my first iOS app: a fully on-device AI second brain. Context engineering when your model is small, your token budget is tiny, and the network is not an option." />
+  <meta property="og:title" content="Fitting a Second Brain Into 8,192 Tokens" />
+  <meta property="og:description" content="Context engineering for on-device AI: token budgets, KV-cache discipline, LLM-free retrieval, and a test suite that bans networking." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/atlas-context-engineering.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/atlas-context-engineering.html" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Fitting a Second Brain Into 8,192 Tokens</h1>
+  <p><em>July 2026 · 13 min read</em></p>
+
+  <p>I spent this year building my first iOS app, and I picked a fight with physics to do it. A personal AI "second brain" for notes, documents, calendar and health data, where the model runs entirely on the phone. No API. No server. The app's one and only network request is downloading the model itself, once.</p>
+
+  <p>Everyone building LLM apps talks about prompt engineering. What on-device work teaches you, brutally and immediately, is <em>context</em> engineering. My model is a Gemma small enough to run on a phone. My context window is 8,192 tokens on a good device and 4,096 on a lesser one, sized by an available-memory check at startup. Into that space must fit the system prompt, the conversation so far, and whatever fragments of your knowledge actually answer the question. Every token is contested territory.</p>
+
+  <p>This post is about what that constraint did to the architecture. Because looking back, the small context window was the best architect on the team.</p>
+
+  <h2>Where this app comes from</h2>
+
+  <p>Atlas started with a plane seat. I was flying to a country I'd never visited, and somewhere over the clouds I realized I had done zero research. No saved plans, no list of neighborhoods, nothing. I had notes though. Months of them. Articles I'd clipped, a friend's recommendations pasted into a chat with myself, half a packing list with three restaurant names at the bottom. All of it on my phone, none of it reachable, because every "smart" assistant I had was a thin client for a server on the other side of an ocean I was currently above. That was the moment the requirement crystallized: the intelligence has to live where the data lives. On the device, working at 11,000 meters, working in a tunnel, working when the API bill or the company behind it goes away.</p>
+
+  <p>The second moment came from watching a friend, a documentary producer, in the twenty minutes before a funding meeting. She'd met this person once, eight months earlier, at a festival. The information she needed existed. It was just shattered across her life: the original conversation in her notes, the person's colleague in her contacts, the project they'd discussed in a folder of clippings, the follow-up promise buried in a calendar event description. Watching her frantically grep her own history by hand, I understood that the problem wasn't storage. Everything was stored. The problem was that nothing was <em>connected</em>. People, meetings, projects and notes form a web, and her tools kept them as lists. That's the direct ancestor of Atlas's knowledge graph and the morning briefing: a personal ontology where "Jan" is a node that knows which meetings, which documents and which colleagues he's attached to, so twenty panicked minutes become one question.</p>
+
+  <p>And the bet got a research backbone partway through the build. Databricks' AI Research team published <a href="https://www.databricks.com/blog/memory-scaling-ai-agents">Memory scaling for AI agents</a>, arguing that agent performance scales with accumulated, persistent external memory, not just with model size or reasoning power. That's Atlas's thesis, stated by people with far more GPUs than me. A small model with a rich, well-organized memory of <em>your</em> life can be more useful to you than a frontier model that meets you as a stranger every conversation. The whole architecture below (the graph, the indexes, the enrichment jobs) is an attempt to cash that idea in on a phone: spend the engineering on memory, and let the model be small.</p>
+
+  <h2>Rule one: the LLM is a last resort</h2>
+
+  <p>The defining decision in Atlas is what <em>doesn't</em> go through the model. Interactive search, the thing you do fifty times a day, never touches the LLM. Not once. There's even a test, <code>searchNeverInvokesLLM</code>, that pins this as an invariant. An earlier design drifted into running three generations per search (query expansion, calendar interpretation, entity extraction) and every search took seconds and warmed your hand. Never again.</p>
+
+  <p>The replacement is deterministic machinery, and it's worth seeing whole:</p>
+
+  <pre class="mermaid">
+flowchart TB
+    Q["query: 'what did I discuss&lt;br/&gt;with Jan last week?'"] --> R{router}
+    R --> CAL["date regex →&lt;br/&gt;DateInterval →&lt;br/&gt;one indexed SQL query&lt;br/&gt;boost 2.0"]
+    R --> FTS["FTS5 BM25&lt;br/&gt;keyword search&lt;br/&gt;0.3–0.4 ms"]
+    R --> VEC["512-dim vectors&lt;br/&gt;k-means ANN, 64 clusters&lt;br/&gt;~0.2 ms"]
+    R --> NER["NLTagger finds 'Jan' →&lt;br/&gt;graph, 1-hop expansion&lt;br/&gt;boost 1.5"]
+    CAL --> BLEND["score blend&lt;br/&gt;0.4 × bm25 + 0.6 × semantic"]
+    FTS --> BLEND
+    VEC --> BLEND
+    NER --> BLEND
+    BLEND --> PACK["ExcerptPacker&lt;br/&gt;top 5 · ≤500 chars each&lt;br/&gt;~1,024-token budget&lt;br/&gt;dedupe + citations"]
+    PACK --> LLM["LLM — only if you&lt;br/&gt;asked a question,&lt;br/&gt;never for search"]
+  </pre>
+
+  <p><strong>Hybrid retrieval</strong>: SQLite FTS5 gives BM25 keyword search, and a vector store over 512-dimensional embeddings gives semantic search. The embeddings come from Apple's built-in NLEmbedding, which is free, on-device, and needs no model download. The vector side is accelerated by k-means clustering with 64 centroids persisted in SQLite, so the index survives relaunch without recomputation. <strong>Calendar questions</strong> resolve with a regex date parser mapping "next week" to a concrete <code>DateInterval</code>, answered by one indexed SQL query over date ranges extracted at ingest. Deterministic, instant, and it never hallucinates a meeting. <strong>Entity questions</strong> lean on a knowledge graph. NER tags people and places, and queries mentioning a known entity expand one hop to boost related notes.</p>
+
+  <p>The performance numbers explain why this is the right side of the trade. FTS5 answers in 0.3 to 0.4 milliseconds. The vector index in about 0.2. An embedding lookup in single-digit milliseconds. The LLM needs seconds. Spending the model on retrieval is like hiring a novelist to alphabetize your bookshelf.</p>
+
+  <h2>Blending scores that don't speak the same language</h2>
+
+  <p>My favorite bug of the project lived in that blending formula. FTS5's BM25 rank is negative-is-better and unbounded. Cosine similarity sits politely in [0,1]. My first normalization was wrong in a way that made <em>worse</em> keyword matches score <em>higher</em>. And hybrid search mostly still worked, because the semantic side papered over it. That's the sneaky thing about ranking bugs. They don't crash. They just quietly serve you the second-best answer. The fix normalizes rank as <code>|rank| / (1 + |rank|)</code> to land keyword scores in the same [0,1] space as the vectors. The lesson I framed on the wall: before blending two scores, prove they share a scale. With a test, not a comment.</p>
+
+  <h2>Everything downstream depends on ingestion</h2>
+
+  <p>None of the retrieval machinery works unless ingestion did its job, so a single <code>DocumentIngestor</code> owns the whole path. Parse (Markdown, PDF with OCR fallback via Vision, Obsidian vaults, calendar, contacts, health data), chunk, embed in batches, extract entities, and commit. One write transaction per document per store, so a crash mid-import never leaves a document half-searchable.</p>
+
+  <p>Chunking is where retrieval quality is actually decided, and it happens here, long before any query. A semantic chunker embeds sentences and cuts where adjacent similarity drops below 0.7, yielding 256 to 768 character chunks that tend to be <em>about one thing</em>. That matters enormously when the packer can only afford five of them. A plain size-based chunker (512 chars, 128 overlap) stands by as fallback for text with no semantic structure to find.</p>
+
+  <p>Entity extraction at ingest is what makes the graph trustworthy later. Names found by NER become canonical entities whose IDs are <em>derived</em>: a UUID from the SHA-256 of the lowercased, trimmed name. So "Jan" in two documents is the same node by construction. No reconciliation service, no fuzzy matching pass, no drift. Deterministic identity is the kind of decision that costs one line at ingest and saves a subsystem later.</p>
+
+  <p>Deletion runs the same pipeline in reverse, in a fixed order. Vectors first, then metadata, then graph edges. The invariant is that nothing orphaned can ever surface in search. Deleting a document in a privacy app has to actually mean deleted, and the ordering is what guarantees a crash mid-delete errs toward invisible, not toward ghost results.</p>
+
+  <h2>Spending the 8,192</h2>
+
+  <p>When the model <em>is</em> warranted (chat, and the agentic path with its four tools: search, calendar, entity graph, document ingest), the budget discipline kicks in. Token counting on-device is a tension. Running the real tokenizer over everything you're <em>considering</em> including is wasted compute. So a <code>TokenEstimator</code> heuristic, roughly four UTF-8 bytes per token and deliberately over-estimating, makes the packing decisions, and a test validates the heuristic against the actual tokenizer so drift can't creep in silently. Estimate cheap, verify in CI.</p>
+
+  <p>Retrieved context gets that hard ~1,024-token sub-budget. Top five excerpts, each capped at 500 characters, deduplicated when chunks overlap, source attribution preserved so citations survive into the answer. Conversation history fills newest-first until the budget objects, which is smarter than a fixed "last 10 messages" because it keeps whole recent exchanges intact when they're long and reaches further back when they're short.</p>
+
+  <p>Even sampling parameters split by purpose. Chat runs warm (topK 40, temperature 0.7). The agentic path runs cold (topK 20, temperature 0.3). "Phrase this pleasantly" and "choose the correct tool" are different jobs, and only one of them benefits from creativity.</p>
+
+  <h2>The KV cache is sacred</h2>
+
+  <p>On-device, time-to-first-token is the whole user experience, and the KV cache is the lever. Atlas keeps one inference conversation per chat and prefills only the new user message each turn, so latency stays flat as conversations grow instead of climbing with history length. The discipline is knowing what invalidates it. Change the system prompt or the tool set and the cache is meaningless. So those are pinned stable within a session, and cache invalidation is an explicit, tested event rather than an accident.</p>
+
+  <p>This same concern shaped the background work. Atlas runs enrichment jobs (summaries, typed relationship extraction for the graph) through the same model, but always in fresh conversations that never touch a chat's warm cache. Three attempts, exponential backoff, thermal and low-power gating so your pocket doesn't become a hand warmer. Interactive use preempts background jobs unconditionally, and a cancelled enrichment doesn't even consume a retry attempt.</p>
+
+  <p>Enrichment output gets zero benefit of the doubt. Relationship extraction must pick from a closed vocabulary of eight edge types (<code>works_with</code>, <code>reports_to</code>, <code>depends_on</code>, and friends). Anything off-list is silently dropped, not creatively reinterpreted. A small model inventing graph schema is how a knowledge base becomes a hallucination base. The graph stays trustworthy precisely because the LLM's write access to it is so narrow. Even the vector index applies the same skepticism to itself. The k-means clustering only rebuilds after more than 20% of the corpus has changed, in the background, reconciling writes that happened mid-rebuild. Recomputing 64 centroids on every note you jot down is how batteries die.</p>
+
+  <p>The morning briefing is the pattern at full size. Today's meetings, who's in them, what you last discussed, assembled <em>entirely</em> without the model. Calendar query, NER over event titles, graph neighbors per person, topic search per meeting, enrichment summaries where they exist. The LLM's only job is narrating context that deterministic code already gathered, through the same warm conversation, no new tools registered, cache intact.</p>
+
+  <blockquote class="pullquote">The model is the voice. Never the librarian.</blockquote>
+
+  <h2>Privacy as a compile-time property</h2>
+
+  <p>"Private" is the promise the whole app stands on, and promises in READMEs are worth what they cost to break. So the enforcement is a test. <code>NetworkEgressIsolationTests</code> scans every source file in the build and fails if networking primitives appear anywhere outside the single sanctioned function that downloads the model (over HTTPS, verified against a compiled-in SHA-256, with a free-disk-space pre-check before the 2.6 GB lands). A future me, tired at midnight, cannot casually add an analytics call. The build would fail. Same pattern pins voice input: a test asserts <code>requiresOnDeviceRecognition</code>, and if the OS can't transcribe locally, Atlas refuses to transcribe at all. Your voice doesn't go to a server, <em>including Apple's</em>.</p>
+
+  <!-- IMAGE SLOT: iPhone screenshot of Atlas answering with citations, or Xcode test navigator showing 520 tests in ~3s (docs/blog/images/atlas-app.png) -->
+
+  <p>Even the escape hatch honors the rule. Atlas exposes an MCP server so other local tools can query the knowledge base. Three read-only tools (search, entity lookup, calendar check), SQLite opened read-only via WAL, JSON-RPC over stdio. No socket, no port, no network. And deliberately no write path. An external tool can ask your second brain questions, but nothing outside the app can put thoughts <em>into</em> it. Interoperability without a single new way for data to leave.</p>
+
+  <h2>What the constraint taught</h2>
+
+  <p>A year in the cloud teaches you that context is cheap. Stuff the window, let a frontier model sort it out. A month on-device un-teaches it. Every design above (LLM-free retrieval, budgeted packing, cache discipline, closed vocabularies, deterministic IDs) exists because tokens, milliseconds and joules are all scarce on a phone. And the strange part: these choices didn't make the product worse. Search is instant <em>because</em> it skips the model. Answers cite sources <em>because</em> the packer preserves them. The graph is reliable <em>because</em> the model isn't trusted to write it freely.</p>
+
+  <p>Scarcity, it turns out, is a decent engineering mentor. The 520-test suite runs in three seconds, the app answers questions about your life without your life leaving the device, and somewhere in the build pipeline a test quietly checks, every single time, that it stays that way.</p>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://www.databricks.com/blog/memory-scaling-ai-agents">Memory scaling for AI agents (Databricks AI Research)</a>: The research inspiration behind Atlas's core bet: agent performance scales with accumulated, persistent external memory, not just model size. Atlas is that idea implemented on a phone, where the memory (graph, indexes, summaries) gets the engineering budget and the model stays small.</li>
+    <li><a href="https://ai.google.dev/gemma">Gemma</a>: Google's family of open-weight models. Atlas runs a Gemma small enough for phone memory, downloaded once and verified against a pinned checksum. Open weights are what make a no-server, no-account product possible at all.</li>
+    <li><a href="https://github.com/google-ai-edge/LiteRT-LM">LiteRT-LM</a>: Google's on-device LLM runtime: it loads the model, manages the KV cache and conversations, and supports constrained decoding for tool calls. The KV-cache reuse it exposes is why time-to-first-token stays flat as chats grow, which on-device is the entire user experience.</li>
+    <li><a href="https://sqlite.org/fts5.html">SQLite FTS5</a>: SQLite's built-in full-text search engine with BM25 ranking. It answers keyword queries over all notes in under half a millisecond, on-device, inside the same database file as everything else. It's one half of hybrid retrieval and needs no server, no extra process, nothing.</li>
+    <li><a href="https://developer.apple.com/documentation/naturallanguage/nlembedding">Apple NLEmbedding</a>: Sentence embeddings from the OS's built-in NaturalLanguage framework: 512-dimensional vectors, computed locally, no model download. It powers the semantic half of retrieval and the semantic chunker. Free capability already sitting in every iPhone, which fits the zero-network constraint perfectly.</li>
+    <li><a href="https://en.wikipedia.org/wiki/K-means_clustering">k-means clustering</a>: The approximate-nearest-neighbor strategy for vector search: vectors are grouped into 64 clusters, a query only compares against the nearest clusters' members, and centroids persist in SQLite. It solves 'compare against everything' latency at personal-corpus scale without a dedicated vector database.</li>
+    <li><a href="https://modelcontextprotocol.io/">Model Context Protocol (MCP)</a>: The open standard Atlas's read-only server speaks, so other local tools can query the knowledge base over stdio. Chosen precisely because it works without a socket or network: interoperability that doesn't create a new way for data to leave the device.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

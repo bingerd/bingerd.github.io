@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Home Assistant on Kubernetes: A Questionable Decision I'd Make Again — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Running Home Assistant on a k3s cluster: hostNetwork for device discovery, an init container that bootstraps configuration, a Matter server sidecar, and the quirks in between." />
+  <meta property="og:title" content="Home Assistant on Kubernetes: A Questionable Decision I'd Make Again" />
+  <meta property="og:description" content="Single-replica smart homes, hostNetwork tradeoffs, and a busybox init container doing the work of a config management system." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/home-assistant-k8s.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/home-assistant-k8s.html" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Home Assistant on Kubernetes: A Questionable Decision I'd Make Again</h1>
+  <p><em>June 2026 · 8 min read</em></p>
+
+  <p>Home Assistant's documentation gently steers you toward running it on a dedicated box. A Raspberry Pi, their own appliance OS, maybe a container if you insist. What it does not suggest is running it as a workload on a Kubernetes cluster, because that is a strange thing to want.</p>
+
+  <p>I run mine on the <a href="home-cluster-gitops.html">k3s cluster</a> in my living room anyway, deployed by Argo CD from a Git repo like everything else in the house. This post is the honest accounting. Which Kubernetes concepts survive contact with a smart home hub, which ones bend, and where the workarounds live.</p>
+
+  <h2>A stateful singleton in a world built for replicas</h2>
+
+  <p>Start with what Home Assistant is, architecturally: a singleton with a SQLite database and strong feelings about being the only one of itself. Two instances writing one config directory is corruption with extra steps. So the deployment renounces most of what Kubernetes is famous for:</p>
+
+  <pre><code class="language-yaml">spec:
+  replicas: 1
+  strategy:
+    type: Recreate</code></pre>
+
+  <p><code>Recreate</code> instead of the default rolling update matters more than it looks. A rolling update briefly runs old and new pods side by side. For a stateless API that's zero-downtime deployment. For Home Assistant it's two processes fighting over one SQLite file. Recreate kills the old pod fully before starting the new one. I traded thirty seconds of "the lights are thinking" during upgrades for not corrupting my smart home's memory.</p>
+
+  <p>State lives on two PersistentVolumeClaims. 10 GiB for the config volume, which looks generous until you remember the recorder database grows with every sensor reading your house ever emits. And a separate 1 GiB volume for the Matter server, kept apart so the two processes never share a write path. Both are <code>ReadWriteOnce</code>, which on a single-node cluster is less a restriction than a statement of fact. Backups ride the same GitOps philosophy as everything else. The manifests in Git rebuild the shape of the deployment in minutes. The PVC contents are what actually needs backing up, and they're small enough that snapshotting them is a cron job, not a project.</p>
+
+  <p>Everything about this pod, drawn in one picture:</p>
+
+  <pre class="mermaid">
+flowchart TB
+    subgraph NODE["NUC (master node — pod pinned here)"]
+        subgraph POD["Home Assistant pod (hostNetwork: true)"]
+            INIT["init: busybox&lt;br/&gt;seed configuration.yaml&lt;br/&gt;append http: proxy block"] --> HA["home-assistant:stable"]
+            INIT --> MS["matter-server:stable&lt;br/&gt;(sidecar)"]
+        end
+        CFG[("PVC 10Gi&lt;br/&gt;/config")] --- HA
+        MDATA[("PVC 1Gi&lt;br/&gt;matter data")] --- MS
+        CM["ConfigMap&lt;br/&gt;config template"] -.seed only.-> INIT
+    end
+    LAN["smart devices&lt;br/&gt;mDNS · SSDP · Matter"] <-->|multicast heard via host NIC| POD
+    WEB["browser"] --> TR["Traefik ingress"] --> HA
+  </pre>
+
+  <h2>The hostNetwork confession</h2>
+
+  <p>The least Kubernetes-native line in the manifest, and the most necessary:</p>
+
+  <pre><code class="language-yaml">hostNetwork: true
+dnsPolicy: ClusterFirstWithHostNet</code></pre>
+
+  <p>Smart home devices announce themselves with multicast. mDNS, SSDP. Cast devices, ESPHome nodes, half the discoverable world shouts into the local network and expects the hub to hear it. A pod on the cluster's overlay network is deaf to all of it, because the multicast never crosses the bridge. <code>hostNetwork: true</code> puts Home Assistant directly on the NUC's network interface, where it can hear the house.</p>
+
+  <p>The subtle tax is that second line. With host networking, a pod defaults to the <em>host's</em> DNS, and suddenly it can't resolve cluster-internal service names. <code>ClusterFirstWithHostNet</code> restores cluster DNS while keeping host networking. I now check that combination by reflex on any hostNetwork pod, having learned it the way this is always learned: forty-five minutes of staring at a resolver error that made no sense.</p>
+
+  <p>Since host networking nails the pod to a specific machine's network identity anyway, the deployment leans in. Node affinity requires the master node, with a matching toleration for its taint. Portability was already spent, so determinism was worth buying with it. If the cluster ever grows a second node, Home Assistant will not be invited to wander.</p>
+
+  <h2>A busybox init container as the bootstrapper</h2>
+
+  <p>My favorite piece of this manifest is the tiny shell script that runs before Home Assistant starts. The problem: Home Assistant owns and rewrites its <code>configuration.yaml</code> at runtime, so you can't mount the whole config from a ConfigMap read-only. But a fresh install still needs sane initial config, and running behind Traefik requires a proxy block Home Assistant won't add itself.</p>
+
+  <p>The compromise is a busybox init container with two idempotent moves. If <code>configuration.yaml</code> doesn't exist, seed it from the ConfigMap template. If it exists but lacks an <code>http:</code> section, append the reverse-proxy settings: <code>use_x_forwarded_for</code> plus the cluster's pod CIDR (<code>10.42.0.0/16</code>, the k3s default) as a trusted proxy, so Home Assistant believes the client IPs Traefik forwards instead of treating every login as an attack from inside the house.</p>
+
+  <p>The template itself stays deliberately minimal. The <code>default_config</code> integrations, text-to-speech wired to a translate service, and that proxy block. Everything else, the dashboards and automations and device configs, belongs to the app's own runtime mutations. It's ConfigMap-as-seed rather than ConfigMap-as-truth. Git owns the starting state and the invariants, the app owns what it learns afterward, and the init container is the boundary negotiator between GitOps and software that was never told about GitOps. Ten lines of shell doing the diplomacy.</p>
+
+  <p>The idempotency is what makes it live comfortably under Argo CD. Every pod restart re-runs the init container, and on a healthy volume both checks no-op in milliseconds. There's no "first install" flag anywhere, no state about whether bootstrapping happened. The script just converges the volume toward its invariants every single boot.</p>
+
+  <blockquote class="pullquote">Don't record whether you did the thing. Check whether the thing is true.</blockquote>
+
+  <h2>The Matter sidecar</h2>
+
+  <p>Matter device support needs a separate controller process, and this is where Kubernetes stops fighting me and starts helping. The Matter server rides in the same pod as a second container. Sidecar semantics are exactly right for once. Commissioning a Matter device involves the controller and the hub coordinating over the local network, and sharing the pod's host network means they see the same network reality by construction. They share a lifecycle so they restart together, the Matter server keeps its own small volume, and there is no scenario where one is up, the other is down, and I'm debugging which. The pattern that felt like ceremony for web apps is genuinely the correct shape here.</p>
+
+  <!-- IMAGE SLOT: HA dashboard screenshot, or kubectl get pods showing the 2-container pod (docs/blog/images/ha-pod.png) -->
+
+  <h2>Probes for software that boots like a house</h2>
+
+  <p>Health checking stays humble. TCP probes on the web port, liveness with a 60-second initial delay and 30-second period, readiness at 30 and 10. Home Assistant boots like it's stretching first. Integrations initialize serially, some wait on network devices that may themselves be waking up, and the whole process takes longer after a power cut, which is precisely when you least want Kubernetes making things worse.</p>
+
+  <p>That's why the probes answer "is the process up" and nothing deeper. Every increment of probe cleverness, checking the API, checking an integration, is another way for a slow Zigbee stick to get the pod killed mid-boot, restarted, killed again, forever. I've watched that loop. On restarts-after-power-cuts, patience beats precision, and a liveness probe should test for "alive", not "fully dressed".</p>
+
+  <h2>Verdict</h2>
+
+  <p>Would I recommend this to someone who just wants working lights? No. Buy the appliance, enjoy your evening. The honest benefit case is narrower and better. If a k3s cluster already runs your house, folding Home Assistant into it means the smart home gets the same superpowers as everything else. Config in Git, upgrades by bumping an image tag in a commit, rollbacks by revert, rebuild-from-scratch as a twenty-minute plan rather than a lost weekend.</p>
+
+  <p>The pod pins to one node, claims its network, refuses replicas, and mutates its own config. Kubernetes purists would wince. But it's been quietly running the house for months, surviving upgrades and power cuts, and every workaround it needed is documented in the one place I'll actually find it again: the manifest.</p>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://www.home-assistant.io/">Home Assistant</a>: The open-source smart home platform at the center of the post: it speaks to thousands of device types locally and keeps automation in the house instead of a vendor cloud. Architecturally it's a stateful singleton, which is precisely what makes running it on Kubernetes interesting.</li>
+    <li><a href="https://github.com/home-assistant-libs/python-matter-server">python-matter-server</a>: Home Assistant's controller implementation for Matter, the cross-vendor smart home standard. It must run as its own process, which is why it rides as a sidecar container sharing the pod's network and lifecycle.</li>
+    <li><a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy">Kubernetes deployment strategies</a>: The docs behind the <code>Recreate</code> choice. Rolling updates overlap old and new pods for zero downtime; Recreate fully stops the old pod first. For software with an exclusive-access SQLite database, overlap means corruption, so the 'worse' strategy is the correct one.</li>
+    <li><a href="https://kubernetes.io/docs/concepts/workloads/pods/init-containers/">Kubernetes init containers</a>: Containers that run to completion before the main containers start. Here a busybox init container seeds and patches configuration, solving the mismatch between GitOps (Git owns config) and Home Assistant (the app rewrites its own config) by giving each a defined territory.</li>
+    <li><a href="https://traefik.io/traefik/">Traefik</a>: The k3s-bundled ingress that fronts the web UI. Its involvement is why the trusted-proxy block must be appended to Home Assistant's config, so forwarded client IPs are believed rather than treated as spoofing.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

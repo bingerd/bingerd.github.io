@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>One Encoder, Three Jobs: Multi-Task NLP for E-commerce Search — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Building a search intent classifier for a large Dutch e-commerce platform: domain-adapting multilingual BERT, sharing encoder layers across three tasks, and the gap between synthetic and real data." />
+  <meta property="og:title" content="One Encoder, Three Jobs: Multi-Task NLP for E-commerce Search" />
+  <meta property="og:description" content="How we made one BERT do the work of three models, and what synthetic training data quietly cost us." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/intent-classifier-training.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/intent-classifier-training.html" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>One Encoder, Three Jobs: Multi-Task NLP for E-commerce Search</h1>
+  <p><em>March 2026 · 10 min read</em></p>
+
+  <p>When someone types "red summer dress" into an e-commerce search bar, they want a product page. When they type "modern home decor ideas", they want to browse. When they type "how to clean leather jacket", they don't want to buy anything at all, and showing them a wall of leather jackets is exactly the wrong move.</p>
+
+  <p>That distinction is buying intent, and it was the problem I worked on for a large Dutch e-commerce platform. Search behaves differently depending on what kind of query it's looking at. So upstream of ranking, something needs to answer: is this person hunting a specific product, exploring a category, looking for inspiration, or not shopping at all?</p>
+
+  <p>It sounds like a single classification task. It turned into three models. And then, in the most satisfying part of the project, back into one.</p>
+
+  <h2>First, teach BERT the language of queries</h2>
+
+  <p>We started from multilingual BERT, because the queries are mostly Dutch with a heavy sprinkling of English and brand names from everywhere. But a base BERT has never seen search queries. Queries aren't sentences. They're two to five words, no grammar, brand names glued to model numbers, typos that a human parses without noticing.</p>
+
+  <p>So before any classification, we ran masked-language-model fine-tuning on a large corpus of real, anonymized queries from the domain. Nothing exotic here, just the standard HuggingFace <code>Trainer</code>, masking tokens and asking the model to fill them in. The result was a domain-adapted encoder that had internalized how people actually type when they shop. Every downstream metric moved up when we swapped it in. If you take one practical thing from this post: MLM fine-tuning on in-domain text is cheap, boring, and it works.</p>
+
+  <p>There's a second, less glamorous layer of domain knowledge that runs <em>before</em> the encoder ever sees a token: lexical preprocessing. A <code>LexicalPreprocessor</code> enriches each raw query with markers the model can use. Flashtext for exact matching against known book titles, since books are a notorious intent trap where a title looks like a natural-language sentence. Rapidfuzz for fuzzy hits against category names. Some NLTK-derived token features. Feature engineering feeding a transformer felt slightly heretical in 2026, like installing a carburetor on an EV. It also measurably helped, and "measurably helped" wins that argument every time. Short queries are information-starved, so anything that injects domain knowledge before 32 tokens of budget runs out is worth its complexity.</p>
+
+  <h2>Then it became three tasks</h2>
+
+  <p>Intent classification alone wasn't enough for the search team. Two more questions kept coming up. <em>Does this query contain a brand or creator name?</em> That's entity recognition, and knowing "stan smith" is a shoe and not a person changes everything. And <em>which product category does this query most likely belong to?</em> That one is a prediction over roughly fifteen thousand categories.</p>
+
+  <p>So the system grew three heads, each with its own personality. The <strong>intent classifier</strong> got the full treatment: complete backpropagation through the encoder, masked mean pooling over the token embeddings, dropout, one linear layer. The <strong>NER model</strong> froze most of the encoder, unfroze the top two layers, and put a CRF on top for BIO tagging, because entity boundaries benefit from the CRF's ability to reason about label transitions. "B-BRAND cannot follow I-CREATOR" is exactly the kind of constraint you want enforced structurally rather than hoped for statistically. The <strong>category model</strong> also kept the encoder mostly frozen and used an interaction-style head, inspired by the EXAM line of work, to cope with an output space of fifteen thousand labels without the final layer becoming most of the model.</p>
+
+  <p>The freezing pattern wasn't just about compute. Full fine-tuning on the two auxiliary tasks would have dragged the shared representation toward their objectives. Freezing all but the top layers let each task specialize where specialization is cheap, near the output, while leaving the domain-adapted foundation intact. We didn't know it yet, but this decision is what made the final act possible.</p>
+
+  <h2>The part I'd do again anywhere: the system model</h2>
+
+  <p>Three BERT-based models means paying for three BERT forward passes on every keystroke-adjacent query. At search-traffic volumes, that's real money and real latency.</p>
+
+  <p>But here's the observation. All three models were fine-tuned from the <em>same</em> domain-adapted encoder, and only the top layers meaningfully diverged. The bottom of the network, layers 0 through 9, was doing near-identical work three times.</p>
+
+  <p>So we built what we called the system model: a single composed network that runs the shared layers once, then branches at layer 10 into the three task-specific paths. One tokenization, one pass through ten transformer layers, three answers.</p>
+
+  <pre class="mermaid">
+flowchart TD
+    Q["query: 'stan smith 43'"] --> P["lexical preprocessing&lt;br/&gt;flashtext · rapidfuzz"]
+    P --> T["tokenizer (max_length 32)"]
+    T --> S["shared encoder&lt;br/&gt;BERT layers 0–9&lt;br/&gt;(runs once)"]
+    S --> B1["layers 10–11 (intent)&lt;br/&gt;mean pool → linear"]
+    S --> B2["layers 10–11 (NER)&lt;br/&gt;CRF over BIO tags"]
+    S --> B3["layers 10–11 (category)&lt;br/&gt;interaction head"]
+    B1 --> O1["buying intent"]
+    B2 --> O2["brand/creator spans"]
+    B3 --> O3["top product categories"]
+  </pre>
+
+  <p>Roughly 2.5× faster than running the models separately, with each task's accuracy preserved, because each branch kept exactly the layers it had specialized. The merged model exports to TorchScript for serving and ONNX with int8 quantization where CPU inference needs to be extra cheap. Two artifacts from one training run, since the serving fleet and the batch backfill jobs have different hardware realities. There's something deeply pleasing about a model artifact that is literally the org chart of the problem: shared understanding at the bottom, specialized judgment at the top.</p>
+
+  <h2>The synthetic data tax</h2>
+
+  <p>Labeled queries are expensive, so like everyone in 2025, we generated synthetic training data. And the model looked <em>great</em> on synthetic held-out sets.</p>
+
+  <p>Then we evaluated on a smaller set of real labeled queries and watched about eight F1 points evaporate.</p>
+
+  <p>Eight points is not a rounding error. Real queries are messier than any generator makes them. The misspellings are weirder, the intent is more ambiguous, people paste half a product title with the color in the wrong place. The synthetic data taught the model a cleaner world than the one it would serve in. We never fully closed that gap. We managed it, by making sure real data dominated evaluation even when synthetic data dominated training, and by treating synthetic-set metrics as an upper bound, never a claim.</p>
+
+  <blockquote class="pullquote">If your eval set is synthetic, you don't have an evaluation. You have an optimistic simulation.</blockquote>
+
+  <h2>The pipeline around the model</h2>
+
+  <p>Training runs on Vertex AI custom jobs, orchestrated by Airflow on Cloud Composer. A g2-standard-4 with an NVIDIA L4 is plenty for models this size. PyTorch Lightning owns the training loop, with the data side wrapped in Lightning DataModules so train/val/test splits and tokenization live in one place instead of leaking across scripts. Optuna handles hyperparameter search with 5-fold cross-validation, which on small labeled sets isn't a luxury. With limited real data, a single lucky split can sell you a learning rate that doesn't generalize, and five folds is the cheapest available honesty.</p>
+
+  <p>The DAG itself is refreshingly literal:</p>
+
+  <pre class="mermaid">
+flowchart LR
+    A["log training start"] --> B["train intent classifier&lt;br/&gt;(full backprop)"]
+    B --> C["train NER&lt;br/&gt;(frozen + CRF)"]
+    B --> D["train category&lt;br/&gt;(frozen + interaction head)"]
+    C --> E["compose system model&lt;br/&gt;merge shared layers"]
+    D --> E
+    E --> F["system inference&lt;br/&gt;evaluate on real + synthetic sets"]
+    F --> G["log metrics to BigQuery"]
+  </pre>
+
+  <p>The ordering encodes a dependency that's easy to miss. The intent task trains <em>first</em> because it's the one that updates the whole encoder. It produces the foundation. NER and category then train in parallel against that foundation, touching only their top layers. Compose, evaluate, log. The DAG is the architecture, drawn in scheduling.</p>
+
+  <p>For experiment tracking we used BigQuery. Not MLflow, not Weights &amp; Biases. A BigQuery table with a timestamp, a run name, a dataset reference, a JSON <code>configuration</code> column, and a nested <code>metrics</code> record. Every training run appends a row, handled by a couple of CLI flags (<code>--bq_table_id</code>, <code>--bq_create_table</code>) in the trainer. I expected to miss a proper tracking UI and mostly didn't. The query language you already know turns out to be a fine way to ask "show me all runs on this dataset ordered by F1". The JSON config column means no schema migration when hyperparameters grow. And there's no tracking server to babysit. For a small team, a table you can SQL is 90% of the value at 10% of the ceremony. The dashboards, when we wanted them, were one connected sheet away.</p>
+
+  <p>The final artifact ships to a GKE cluster behind a FastAPI service with request batching. But the serving side, the Terraform behind it, and the load tests we pointed at it are their own story, in <a href="terraform-load-testing.html">the next post</a>.</p>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://huggingface.co/docs/transformers">HuggingFace Transformers</a>: The library providing the pretrained multilingual BERT and the training utilities around it. Its masked-language-model <code>Trainer</code> is what let us domain-adapt the encoder on search queries with almost no custom code. Used because pretrained encoders plus fine-tuning beats training from scratch at this data scale, by a lot.</li>
+    <li><a href="https://lightning.ai/docs/pytorch/stable/">PyTorch Lightning</a>: A structure layer over raw PyTorch: it owns the training loop, checkpointing and device handling, while DataModules keep the train/val/test splits and tokenization in one place. It solves the 'every training script is a unique snowflake' problem, which matters when three different task models must stay comparable.</li>
+    <li><a href="https://optuna.org/">Optuna</a>: Hyperparameter search. It samples learning rates, dropouts and batch sizes, prunes bad trials early, and here ran with 5-fold cross-validation so a lucky data split couldn't sell us a configuration that doesn't generalize. Small labeled datasets make this honesty mechanism essential rather than optional.</li>
+    <li><a href="https://en.wikipedia.org/wiki/Conditional_random_field">Conditional random fields (CRF)</a>: The layer on top of the NER head. Instead of predicting each token's tag independently, a CRF scores whole tag sequences, so impossible transitions like an entity that starts in the middle of another are ruled out structurally. It solves boundary errors that per-token classifiers make constantly on short queries.</li>
+    <li><a href="https://cloud.google.com/vertex-ai/docs/training/overview">Vertex AI custom training</a>: Google Cloud's managed training jobs: you hand it a container and a machine spec (here a g2-standard-4 with an L4 GPU), it runs the job and tears the hardware down after. Solves 'the training GPU is idle 95% of the time' by renting the GPU only for the hours a run actually takes.</li>
+    <li><a href="https://github.com/vi3k6i5/flashtext">flashtext</a>: Exact keyword matching that stays fast with huge dictionaries, unlike chained regexes. Used in lexical preprocessing to mark known book titles in queries, because a title like 'how to kill a mockingbird' looks like a question to a model unless something tells it otherwise.</li>
+    <li><a href="https://github.com/rapidfuzz/RapidFuzz">RapidFuzz</a>: Fast fuzzy string matching. It catches near-miss category names in queries (typos, partial words) that exact matching misses, feeding the encoder a hint about probable product categories before classification starts.</li>
+    <li><a href="https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html">ONNX Runtime quantization</a>: Converts model weights from 32-bit floats to 8-bit integers, shrinking the artifact ~4x and speeding up CPU inference substantially, at a small accuracy cost. Used for the export path where inference must be cheap and GPUs aren't available.</li>
+    <li><a href="https://cloud.google.com/bigquery">BigQuery</a>: Google's serverless data warehouse, used here as the experiment tracker: every training run appends a row with config as JSON and metrics as a nested record. It solves experiment tracking without another service to run, because 'show me all runs ordered by F1' is just SQL.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

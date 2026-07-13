@@ -125,6 +125,7 @@ footer {
 </style>
 </head>
 <body data-theme="dark">
+<script src="../js/theme.js"></script>
 
 <nav aria-label="Main navigation">
   <div class="logo">BING TAN</div>
@@ -228,11 +229,5 @@ function animate(t) {
 animate(0);
 </script>
 
-<script>
-  window.toggleTheme = function() {
-    var dark = document.body.dataset.theme === 'dark';
-    document.body.dataset.theme = dark ? 'light' : 'dark';
-  };
-</script>
 </body>
 </html>

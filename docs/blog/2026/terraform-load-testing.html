@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Terraform, GKE, and the 150-Millisecond Question — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Standing up ML training and serving infrastructure with Terraform, then building a second cluster just to attack the first one with Locust. Learnings from IaC and load testing an ML API." />
+  <meta property="og:title" content="Terraform, GKE, and the 150-Millisecond Question" />
+  <meta property="og:description" content="Three Terraform stacks, a P90 &lt; 150ms SLA at 1000 RPS, and a load-testing cluster whose only job is violence." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/terraform-load-testing.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/terraform-load-testing.html" />
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Terraform, GKE, and the 150-Millisecond Question</h1>
+  <p><em>March 2026 · 10 min read</em></p>
+
+  <p>In the <a href="intent-classifier-training.html">previous post</a> I wrote about training a multi-task intent classifier for a large Dutch e-commerce platform. This one is about everything around it: the Terraform that stands the system up, and the load tests that told us whether it could actually take a punch.</p>
+
+  <p>The question the whole serving side had to answer was blunt. P90 under 150 milliseconds at 1000 requests per second. Search-path latency budgets don't negotiate. Every millisecond we ate was a millisecond stolen from ranking, and nobody upstream was volunteering to give it back.</p>
+
+  <h2>Three stacks, three lifecycles</h2>
+
+  <p>The infrastructure repo split into three independent Terraform stacks, and that split turned out to be the most important design decision in it: <em>training</em>, <em>serving</em>, and <em>stress-test</em>. Not modules within one stack. Separate roots with separate state.</p>
+
+  <pre class="mermaid">
+flowchart TB
+    subgraph TRAIN["training stack (semi-permanent)"]
+        C["Cloud Composer&lt;br/&gt;(Airflow)"] --> V["Vertex AI&lt;br/&gt;custom jobs (L4 GPU)"]
+        V --> GCS["GCS bucket&lt;br/&gt;models + data"]
+        V --> BQ["BigQuery&lt;br/&gt;experiment tracking"]
+        AR["Artifact Registry"] --> V
+    end
+    subgraph SERVE["serving stack (lives with the model)"]
+        LB["LoadBalancer"] --> POD["model server pods&lt;br/&gt;FastAPI + TorchScript"]
+        INIT["init container&lt;br/&gt;gcloud storage cp model"] --> POD
+        HPA["HPA @ 70% CPU"] -.scales.-> POD
+        PROM["Prometheus + Grafana"] -.scrapes /metrics.-> POD
+    end
+    subgraph STRESS["stress-test stack (lives for an afternoon)"]
+        LW["Locust workers&lt;br/&gt;(autoscaled)"] --> UI["Locust web UI :8089"]
+    end
+    GCS --> INIT
+    LW ==>|1000 RPS| LB
+  </pre>
+
+  <p>The reason is lifecycle. Training infrastructure (Composer, the bucket, Artifact Registry, BigQuery) exists semi-permanently. Serving infrastructure lives as long as the model serves. And the stress-test stack exists for an afternoon at a time. Mixing resources with different lifespans in one state file means every <code>terraform destroy</code> becomes a nervous negotiation with the plan output. Separating them made destruction boring. And cheap. We tore down the stress-test stack after every session and the serving stack between test phases.</p>
+
+  <blockquote class="pullquote">terraform destroy is a cost-control habit, not an emergency procedure.</blockquote>
+
+  <p>The workflow around the stacks stayed deliberately plain. A <code>terraform.tfvars.example</code> in each root, copied and filled per environment. Plan reviewed by an actual human, apply, work, destroy. No wrapper scripts, no Terragrunt, no cleverness. With three small roots instead of one big one, plain Terraform stayed comfortable. Most IaC tooling complexity is compensation for state files that grew past what a person can read.</p>
+
+  <h2>Learnings from the training stack</h2>
+
+  <p>Cloud Composer, which is managed Airflow, was the piece with the most personality. The main thing nobody warns you about: provisioning takes 20 to 40 minutes. Not occasionally. Every time. You learn to structure your workday around Composer applies the way you'd plan around an oven. Start it, go do something else, come back when it beeps. Iterating on Composer config by re-applying is a day gone.</p>
+
+  <p>Two patterns from that stack I've reused since. First, passing configuration to DAGs via <code>software_config.env_variables</code> in Terraform. Bucket names, project IDs and regions all flow from the same variables that created the resources, so the DAG can't drift from the infrastructure. When the bucket is renamed in one .tf file, the DAG finds out at the next apply, not at 3am. Second, giving Composer its own service account with exactly the roles it needs (Vertex AI user, storage admin on one bucket, BigQuery data editor) instead of the default compute account. The role list gets long. Composer itself needs both a service-agent extension role and a worker role, which cost me an evening of IAM error archaeology. But the result is an orchestrator that can touch what it should and nothing else.</p>
+
+  <p>Even the workload sizing carried a lesson in restraint. The Airflow scheduler and web server run happily at 0.5 CPU and 2 GB each, with workers autoscaling between one and three. Our DAGs don't do work. They <em>delegate</em> work to Vertex AI and wait. An orchestrator sized like a compute cluster is a smell. Ours is sized like a receptionist, which is what it is.</p>
+
+  <h2>Learnings from the serving stack</h2>
+
+  <p>The GKE side is a cluster with an autoscaling node pool (preemptible where the workload tolerates it, at 60 to 70% cheaper), a deployment for the model server, an HPA keyed on CPU around 70%, and a LoadBalancer service in front.</p>
+
+  <p>The detail I like most is how the model gets onto the pod. The container image contains only code. The model artifact lives in GCS. An init container runs <code>gcloud storage cp -r</code> to pull the model and lexical data into a shared volume before the main container starts, and the main container mounts it read-only. Model updates don't require image rebuilds, the image stays small, and read-only mounts mean no pod can quietly corrupt its own weights. Workload Identity binds the Kubernetes service account to a GCP service account with <code>storage.objectViewer</code>. No key files anywhere in the cluster.</p>
+
+  <p>Probes deserve their own paragraph, because ML servers break the assumptions web-app defaults encode. A pod that's still loading a model into memory answers TCP but shouldn't get traffic. So the readiness probe waits for the actual <code>/health</code> endpoint, which flips only after the TorchScript artifact is loaded and a warm-up inference has run, and the initial delay is generous by web standards. An impatient readiness probe on an ML deployment is a machine for serving 503s during every rollout.</p>
+
+  <p>GPU nodes taught their own lesson. Setting <code>gpu_driver_version = "DEFAULT"</code> in the node pool config and letting Google manage driver installation removed a whole category of "why is the accelerator invisible" debugging that I did not miss.</p>
+
+  <h2>A cluster whose only job is violence</h2>
+
+  <p>Here's the thing about load testing at 1000 RPS: the load generator is a distributed system too. Run Locust from your laptop and you're measuring your WiFi. Run it from one VM and around a few hundred RPS the generator saturates before the target does, and your "results" are a portrait of the wrong bottleneck.</p>
+
+  <p>So the stress-test stack is a second GKE cluster whose only purpose is to attack the first one. Terraform deploys autoscaled Locust workers plus a web UI exposed on port 8089, sized by a single variable, so "give me a bigger army" is a one-line change. The Locustfile itself stays simple. Users posting realistic queries, with 0.1 to 0.5 seconds of think time between requests:</p>
+
+  <pre><code class="language-python">class GKEUser(HttpUser):
+    wait_time = between(0.1, 0.5)
+
+    @task(10)
+    def predict_single_query(self):
+        self.client.post("/v1/predict",
+                         json={"query": random.choice(TEST_QUERIES)},
+                         name="/v1/predict [single]")</code></pre>
+
+  <p>The test queries deliberately span the intent spectrum. Exact product hunts, browsy inspiration phrases, how-to questions. A load test that only sends one query shape gets flattered by every cache in the path. A test-stop listener prints P50/P90/P95/P99 and flags any breach of the 150ms line, and every run ends with an HTML report you can attach to a decision instead of a vibe.</p>
+
+  <!-- IMAGE SLOT: Locust HTML report or response-time chart showing P90 under load (docs/blog/images/locust-report.png) -->
+
+  <h2>What the load tests actually found</h2>
+
+  <p>The headline finding wasn't in the infrastructure at all. It was in the API process. The single biggest latency lever was request batching. The FastAPI service collects incoming requests in an async queue, and a worker drains up to 16 of them every 10 milliseconds into one forward pass, resolving each caller's future individually. Transformers are throughput machines. Feeding them one query at a time wastes almost everything they're good at. Batching tripled sustainable throughput on identical hardware, and the 10ms collection window costs less latency than it saves by an order of magnitude.</p>
+
+  <p>The counterintuitive runner-up: <code>torch.set_num_threads(1)</code>. PyTorch's default eagerness to parallelize a single small inference across cores meant threads fighting each other under concurrent load. One thread per worker process, more worker replicas. Smoother latency, better P99, less CPU. We found both of these <em>only</em> because the load tests made the bottlenecks visible. Neither showed up under polite manual testing.</p>
+
+  <p>Observability closed the loop between test sessions. The API exports a Prometheus histogram, <code>prediction_latency_seconds</code>, with buckets chosen around the SLA: 10ms up through 1s, dense near 100 to 300ms where the truth lives. Grafana reads it. The point of matching bucket edges to the SLA is simple. A histogram with generic buckets can tell you the P90 was "somewhere between 100 and 500ms", which is a shrug wearing a chart. Ours could answer the 150ms question directly. Next to latency sat a drift monitor comparing live prediction distributions against training via KL divergence, because an API that's fast and confidently wrong passes every load test you'll ever run.</p>
+
+  <p>That ended up as my summary of the whole exercise. Terraform made the experiments cheap to run and cheap to clean up. Locust made the results honest. Prometheus made the improvements provable. Infrastructure-as-code isn't just reproducibility for production. It's what makes destructive experimentation affordable enough to actually do.</p>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://developer.hashicorp.com/terraform">Terraform</a>: Declarative infrastructure as code. You describe resources in .tf files, it computes the diff against reality and applies it. The three-stack split works because each stack has its own state file, so destroying the load-test cluster can never touch the serving cluster by accident.</li>
+    <li><a href="https://cloud.google.com/composer">Cloud Composer</a>: Managed Apache Airflow, the workflow scheduler that runs the training DAG on a schedule and orders its steps. Managed matters here: Airflow is notorious to self-host, and Composer trades a 20-40 minute provisioning time for never patching a scheduler at midnight.</li>
+    <li><a href="https://cloud.google.com/kubernetes-engine">GKE (Google Kubernetes Engine)</a>: Managed Kubernetes, hosting the model server. Kubernetes brings the pieces an ML API needs anyway (autoscaling, health probes, rolling deploys) and GKE runs the control plane so the team only owns the workloads.</li>
+    <li><a href="https://cloud.google.com/kubernetes-engine/docs/concepts/workload-identity">Workload Identity</a>: Binds a Kubernetes service account to a GCP service account, so pods get cloud permissions through their identity instead of mounted key files. Solves the worst secret-management problem in a cluster: there are no keys to leak because there are no keys.</li>
+    <li><a href="https://locust.io/">Locust</a>: An open-source load-testing tool where scenarios are Python classes: simulated users with think time, tasks and weights. Because workers scale horizontally, Terraform can deploy an army of them, which is what generating an honest 1000 RPS requires. It solves the 'my load test measured the load generator' problem.</li>
+    <li><a href="https://prometheus.io/">Prometheus</a>: Time-series monitoring that scrapes the API's /metrics endpoint. The latency histogram with SLA-aligned buckets is what turns 'it feels fast' into 'P90 is under 150ms at this RPS'. Chosen because histogram buckets you define yourself are the only way to answer a specific SLA question precisely.</li>
+    <li><a href="https://grafana.com/">Grafana</a>: Dashboards over Prometheus data. Its job here is making latency percentiles and drift metrics visible enough that regressions get caught between load-test sessions, not during them.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>
