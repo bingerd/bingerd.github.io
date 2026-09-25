@@ -981,7 +981,11 @@ footer p { margin: 0; }
   nav { padding: 10px 14px; }
   nav .nav-secondary { display: none; }
   nav a { padding: 6px 8px; font-size: 0.85rem; }
-  nav ul { gap: 0; }
+  nav ul { gap: 0; flex-wrap: nowrap; }
+  nav .logo { letter-spacing: 0.12em; font-size: 0.76rem; }
+  button.toggle { padding: 5px 10px; }
+  /* Landscape sits behind the text on phones: soften it evenly */
+  #home::before { background: linear-gradient(180deg, color-mix(in oklab, var(--bg) 35%, transparent), color-mix(in oklab, var(--bg) 70%, transparent) 60%, var(--bg)); }
   .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat:nth-child(3) { padding-left: 0; border-left: 0; }
   .stat:nth-child(n+3) { border-top: 1px solid var(--border-soft); }
@@ -996,6 +1000,11 @@ footer p { margin: 0; }
   .blog-card span { display: none; }
   .blog-card { grid-template-columns: 1fr; grid-template-areas: "meta" "title" "desc"; }
   .loss-curve text { font-size: 16px; }
+}
+
+@media (max-width: 440px) {
+  /* Projects and Contact are one scroll away; keep the nav on one row */
+  nav ul li:nth-child(4), nav ul li:nth-child(7) { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
