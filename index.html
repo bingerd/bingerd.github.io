@@ -14,11 +14,14 @@
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="canonical" href="https://bngrd.com/" />
 
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
-<meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0c0b0a" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f3eee4" media="(prefers-color-scheme: light)" />
 <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
 
 <link rel="stylesheet" href="css/style.css" />
 
@@ -55,12 +58,13 @@
     <li><a href="#contact">Contact</a></li>
     <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
   </ul>
+  <span class="nav-progress" aria-hidden="true"></span>
 </nav>
 
 <section id="home">
   <div class="container">
     <p class="hero-label"><code>loss=0.001 · status=converged</code></p>
-    <h1 class="hero-title">I reduce loss functions<br>for a living.</h1>
+    <h1 class="hero-title">I reduce <em>loss functions</em> for a living.</h1>
     <p class="hero-sub">Production ML systems, low-latency inference, and the quiet satisfaction of watching p99 drop. Currently deployed at scale.</p>
     <div class="hero-stats">
       <div class="stat"><span class="stat-num">2+</span><span class="stat-label">Years shipping ML</span></div>
@@ -68,7 +72,10 @@
       <div class="stat"><span class="stat-num">42%</span><span class="stat-label">p99 latency cut — story below</span></div>
       <div class="stat"><span class="stat-num">7</span><span class="stat-label">Easter eggs on this site</span></div>
     </div>
-    <a class="cta" href="#about">Learn More</a>
+    <div class="hero-foot">
+      <a class="cta" href="#about">Learn More</a>
+      <p class="hero-fig" aria-hidden="true">fig. 1 — three optimizers racing downhill, live: <i class="sgd">SGD</i><i class="mom">Momentum</i><i class="adam">Adam</i></p>
+    </div>
   </div>
 </section>
 
@@ -77,7 +84,8 @@
 <section id="about" data-loading-text="Loading training history...">
   <div class="container">
     <h2 class="section-title">About</h2>
-    <div class="model-card">
+    <div class="bento">
+    <div class="model-card tile">
       <h3 class="model-card-title">Model Card: bing-tan-v2.6</h3>
       <dl class="model-card-fields">
         <dt>Architecture</dt>
@@ -96,12 +104,12 @@
         <dd>Open to interesting problems</dd>
       </dl>
     </div>
-    <div class="about-personal">
+    <div class="about-personal tile">
       <p>Most ML engineers come from computer science. I came from business analytics. My MSc at VU Amsterdam had me building deep learning models in the Computational Intelligence track, but my undergrad taught me something most engineers skip: why the model matters to the business. A model that doesn't ship is just a notebook.</p>
       <p>My work runs the whole altitude range: multi-task transformers serving e-commerce search at 1000 requests per second, and a personal AI app where the entire model fits on a phone and the network is not an option. Same discipline at both ends — count your milliseconds, budget your tokens, test your invariants.</p>
       <p>When I'm not shipping, I'm teaching cloud engineering to TU Delft students, running my house on GitOps, or building <a href="#playground">interactive toys</a> that explain how this stuff actually works.</p>
     </div>
-    <div class="about-content">
+    <div class="about-content tile">
       <h3 class="section-label">Primary Capabilities</h3>
       <div class="about-focus">
         <div class="focus-item">
@@ -117,6 +125,7 @@
           <p>LLM agents with tool use, context engineering, hybrid retrieval, on-device inference</p>
         </div>
       </div>
+    </div>
     </div>
   </div>
 </section>
@@ -230,7 +239,7 @@
         <a class="case-study-link" href="docs/blog/2026/atlas-context-engineering.html">Read the full story →</a>
       </div>
     </div>
-    <p style="margin-top: 24px; font-size: 0.9rem; opacity: 0.6;">Full write-ups, including the bugs, in the linked posts.</p>
+    <p class="fine-print">Full write-ups, including the bugs, in the linked posts.</p>
 
     <!-- Loss Curve Timeline -->
     <div class="loss-curve-container">
@@ -240,16 +249,22 @@
         <line x1="60" y1="20" x2="60" y2="180" stroke="currentColor" stroke-opacity="0.15" stroke-width="1"/>
         <text x="30" y="100" fill="currentColor" fill-opacity="0.4" font-size="11" text-anchor="middle">loss</text>
         <text x="760" y="195" fill="currentColor" fill-opacity="0.4" font-size="11" text-anchor="end">epochs</text>
-        <path class="loss-path" d="M 80,40 C 140,38 160,65 220,80 S 320,110 400,125 S 500,148 560,152 S 660,160 740,162" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>
+        <defs>
+          <linearGradient id="lossGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="var(--accent)"/>
+            <stop offset="1" stop-color="var(--accent-2)"/>
+          </linearGradient>
+        </defs>
+        <path class="loss-path" d="M 80,40 C 140,38 160,65 220,80 S 320,110 400,125 S 500,148 560,152 S 660,160 740,162" fill="none" stroke="url(#lossGrad)" stroke-width="2.5" stroke-linecap="round"/>
         <!-- Milestone dots and labels -->
         <circle cx="80" cy="40" r="5" fill="var(--accent)"/>
-        <text x="80" y="28" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">MSc @ VU Amsterdam</text>
+        <text x="90" y="28" fill="var(--fg)" font-size="10" text-anchor="start" opacity="0.7">MSc @ VU Amsterdam</text>
         <circle cx="260" cy="90" r="5" fill="var(--accent)"/>
-        <text x="260" y="78" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">First model in prod</text>
+        <text x="270" y="78" fill="var(--fg)" font-size="10" text-anchor="start" opacity="0.7">First model in prod</text>
         <circle cx="480" cy="140" r="5" fill="var(--accent)"/>
-        <text x="480" y="128" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">One encoder, three jobs</text>
+        <text x="490" y="128" fill="var(--fg)" font-size="10" text-anchor="start" opacity="0.7">One encoder, three jobs</text>
         <circle cx="720" cy="161" r="5" fill="var(--accent)"/>
-        <text x="720" y="149" fill="var(--fg)" font-size="10" text-anchor="middle" opacity="0.7">Shipped on-device AI</text>
+        <text x="712" y="147" fill="var(--fg)" font-size="10" text-anchor="end" opacity="0.7">Shipped on-device AI</text>
       </svg>
     </div>
   </div>
@@ -289,7 +304,7 @@
         <a class="case-study-link" href="docs/blog/2026/minecraft-server-killswitch.html">Read the story →</a>
       </div>
     </div>
-    <p style="margin-top: 32px; opacity: 0.7;"><a href="https://github.com/bingerd" style="color: var(--accent);">Personal projects and experiments on GitHub →</a></p>
+    <p class="more-link"><a href="https://github.com/bingerd">Personal projects and experiments on GitHub →</a></p>
   </div>
 </section>
 
@@ -350,6 +365,7 @@
   <div class="container">
     <h2 class="section-title">Contact</h2>
     <p class="contact-intro">My inference endpoint is always warm. Reach out about ML systems, interesting problems, or your hot take on batch normalization.</p>
+    <a class="contact-big" href="mailto:bxntan@gmail.com">Say <em>hello</em> ↗</a>
     <div class="contact-links">
       <a href="mailto:bxntan@gmail.com" aria-label="Send email to Bing Tan" title="Email">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -385,8 +401,8 @@
     <span>Uptime: <span id="uptimeCounter">0h 0m 0s</span></span>
     <span>&copy; 2026</span>
   </div>
-  <p style="margin-top: 12px;"><button class="chaos-toggle" onclick="togglePerf()">Toggle chaos mode</button></p>
-  <p style="margin-top: 8px;"><span class="egg-hint">This site contains 7 easter eggs. Type /help if you're curious. <span class="egg-counter" id="eggCounter"></span></span></p>
+  <p><button class="chaos-toggle" onclick="togglePerf()">Toggle chaos mode</button></p>
+  <p><span class="egg-hint">This site contains 7 easter eggs. Type /help if you're curious. <span class="egg-counter" id="eggCounter"></span></span></p>
 </footer>
 
 <script src="js/blog-data.js"></script>
