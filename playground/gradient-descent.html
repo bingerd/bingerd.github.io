@@ -5,9 +5,12 @@
 <title>Gradient Descent Playground — Bing Tan</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="description" content="Drop a ball on a loss surface, pick a learning rate, and watch it converge, oscillate, or explode. Interactive gradient descent in your browser." />
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
-<meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0c0b0a" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f3eee4" media="(prefers-color-scheme: light)" />
 <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
 <link rel="stylesheet" href="../css/blog.css" />
 <style>
   canvas { border-radius:14px; border:1px solid rgba(128,128,128,0.3); max-width:100%; touch-action:none; cursor:crosshair; }
@@ -16,7 +19,7 @@
   .controls input[type=range] { accent-color: var(--accent); }
   .btn { padding:8px 22px; border-radius:999px; border:1px solid var(--accent); background:none; color:var(--fg); cursor:pointer; font-size:0.9rem; }
   .btn.primary { background:var(--accent); color:var(--on-accent, #000); font-weight:600; }
-  .status { font-family:'SF Mono','Fira Code',monospace; font-size:0.9rem; margin-top:8px; min-height:1.4em; }
+  .status { font-family:var(--font-mono); font-size:0.9rem; margin-top:8px; min-height:1.4em; }
   .status.diverged { color:#ff5c5c; }
   .status.converged { color:#00cc66; }
 </style>
@@ -84,7 +87,7 @@
   lrSlider.addEventListener('input', fmtLR);
   fmtLR();
 
-  function accent() { return getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#d9a4ff'; }
+  function accent() { return getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#c4a1ff'; }
 
   function draw() {
     ctx.clearRect(0, 0, W, H);

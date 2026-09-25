@@ -5,9 +5,12 @@
 <title>Neural Trainer — watch a network learn, live — Bing Tan</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="description" content="A tiny neural network (2-8-8-1) with hand-written backpropagation, training live in your browser on XOR, circles, or spirals. No libraries." />
-<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
-<meta name="theme-color" content="#f6f6f6" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0c0b0a" media="(prefers-color-scheme: dark)" />
+<meta name="theme-color" content="#f3eee4" media="(prefers-color-scheme: light)" />
 <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
 <link rel="stylesheet" href="../css/blog.css" />
 <style>
   .demo-wrap { display:grid; grid-template-columns: 1fr; gap:20px; }
@@ -19,7 +22,7 @@
   .controls select { background:var(--bg); color:var(--fg); border:1px solid rgba(128,128,128,0.4); border-radius:8px; padding:6px 10px; }
   .btn { padding:8px 22px; border-radius:999px; border:1px solid var(--accent); background:none; color:var(--fg); cursor:pointer; font-size:0.9rem; }
   .btn.primary { background:var(--accent); color:var(--on-accent, #000); font-weight:600; }
-  .stats { font-family:'SF Mono','Fira Code',monospace; font-size:0.85rem; opacity:0.8; margin-top:8px; }
+  .stats { font-family:var(--font-mono); font-size:0.85rem; opacity:0.8; margin-top:8px; }
 </style>
 </head>
 <body data-theme="dark">
@@ -187,8 +190,8 @@
     return {
       pos: light ? [122, 60, 255] : [217, 164, 255],
       neg: light ? [5, 150, 105] : [0, 255, 170],
-      bg: light ? '#f6f6f6' : '#000',
-      fg: light ? '#0b0b0b' : '#fff'
+      bg: light ? '#f3eee4' : '#0c0b0a',
+      fg: light ? '#1a1611' : '#f2ede4'
     };
   }
 
@@ -237,7 +240,7 @@
       var y = lCanvas.height - 12 - (lossHistory[i] / max) * (lCanvas.height - 30);
       if (i === 0) lCtx.moveTo(x, y); else lCtx.lineTo(x, y);
     }
-    var accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#d9a4ff';
+    var accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#c4a1ff';
     lCtx.strokeStyle = accent;
     lCtx.lineWidth = 2;
     lCtx.stroke();
