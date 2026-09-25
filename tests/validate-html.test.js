@@ -127,7 +127,7 @@ describe('playground pages link back to the playground', () => {
 });
 
 describe('index.html references correct JS files', () => {
-  const jsFiles = ['js/blog-data.js', 'js/main.js', 'js/background.js', 'js/easter-eggs.js'];
+  const jsFiles = ['js/blog-data.js', 'js/main.js', 'js/background.js', 'js/easter-eggs.js', 'js/live.js'];
 
   for (const jsFile of jsFiles) {
     it(`${jsFile} exists on disk`, () => {

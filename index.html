@@ -66,8 +66,9 @@
     <p class="hero-label"><code>loss=0.001 · status=converged</code></p>
     <h1 class="hero-title">I reduce <em>loss functions</em> for a living.</h1>
     <p class="hero-sub">Production ML systems, low-latency inference, and the quiet satisfaction of watching p99 drop. Currently deployed at scale.</p>
+    <a class="hero-latest" id="heroLatest" href="#blog" hidden></a>
     <div class="hero-stats">
-      <div class="stat"><span class="stat-num">2+</span><span class="stat-label">Years shipping ML</span></div>
+      <div class="stat"><span class="stat-num" data-years-since>2+</span><span class="stat-label">Years shipping ML</span></div>
       <div class="stat"><span class="stat-num">50M+</span><span class="stat-label">Daily predictions, team platform</span></div>
       <div class="stat"><span class="stat-num">42%</span><span class="stat-label">p99 latency cut — story below</span></div>
       <div class="stat"><span class="stat-num">7</span><span class="stat-label">Easter eggs on this site</span></div>
@@ -86,12 +87,12 @@
     <h2 class="section-title">About</h2>
     <div class="bento">
     <div class="model-card tile">
-      <h3 class="model-card-title">Model Card: bing-tan-v2.6</h3>
+      <h3 class="model-card-title"><span>Model Card: bing-tan-<span data-model-version>v2.6</span></span></h3>
       <dl class="model-card-fields">
         <dt>Architecture</dt>
         <dd>Human (coffee-powered transformer variant)</dd>
         <dt>Training Data</dt>
-        <dd>BSc & MSc Business Analytics @ VU Amsterdam (Computational Intelligence track), 2+ years industry ML</dd>
+        <dd>BSc & MSc Business Analytics @ VU Amsterdam (Computational Intelligence track), <span data-years-since>2+</span> years industry ML</dd>
         <dt>Intended Use</dt>
         <dd>Production ML systems, inference optimization, scale</dd>
         <dt>Fine-tuned On</dt>
@@ -396,9 +397,10 @@
 
 <footer>
   <div class="status-bar">
-    <span>Model: bing-tan-v2.6</span>
+    <span>Model: bing-tan-<span data-model-version>v2.6</span></span>
     <span>Status: <span class="status-deployed">deployed</span></span>
     <span>Uptime: <span id="uptimeCounter">0h 0m 0s</span></span>
+    <span id="lastDeploy" hidden></span>
     <span>&copy; 2026</span>
   </div>
   <p><button class="chaos-toggle" onclick="togglePerf()">Toggle chaos mode</button></p>
@@ -408,6 +410,7 @@
 <script src="js/blog-data.js"></script>
 <script src="js/main.js"></script>
 <script src="js/easter-eggs.js"></script>
+<script src="js/live.js"></script>
 <script src="js/background.js" defer onerror="document.getElementById('bg').style.display='none'"></script>
 <script>
   // Fallback if background.js (module, loaded from CDN) fails to load
