@@ -5,6 +5,19 @@
    import() of an https URL is allowed. */
 (async () => {
 
+const bgCanvas = document.getElementById('bg');
+// Respect data-saver: the page looks complete without the WebGL figure.
+if (navigator.connection && navigator.connection.saveData) {
+  if (bgCanvas) bgCanvas.style.display = 'none';
+  return;
+}
+
+// Don't compete with first paint: fetch three.js once the page has loaded and gone idle.
+await new Promise((resolve) => {
+  const idle = () => (window.requestIdleCallback ? window.requestIdleCallback(resolve, { timeout: 1500 }) : setTimeout(resolve, 200));
+  if (document.readyState === 'complete') idle(); else window.addEventListener('load', idle, { once: true });
+});
+
 let THREE;
 try {
   THREE = await import('https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js');
@@ -26,7 +39,7 @@ try {
   return;
 }
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, window.innerWidth < 768 ? 1.5 : 2));
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isSmall = () => window.innerWidth < 768;
@@ -334,6 +347,8 @@ if (prefersReducedMotion) {
 } else {
   start();
 }
+// Fade the figure in once there is a frame to show.
+requestAnimationFrame(() => canvas.classList.add('ready'));
 
 // Don't burn GPU while the tab is hidden.
 document.addEventListener('visibilitychange', () => {
