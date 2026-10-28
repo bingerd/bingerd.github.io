@@ -37,26 +37,26 @@
   <h1>The Day I Learned Why Webhooks Need HMAC</h1>
   <p><em>December 2025 · 8 min read</em></p>
 
-  <p>The task sounded almost too small to be a project. When a deal in HubSpot hits "Closed Won", copy one field into an ERP system. One webhook, one API call, maybe sixty lines of FastAPI. I had a working version the same afternoon.</p>
+  <p>The task sounded almost too small to be a project. When a deal in HubSpot hits "Closed Won", copy one field into an ERP system. That's one webhook and one API call, maybe sixty lines of FastAPI, and I had a working version the same afternoon.</p>
 
-  <p>The pipeline itself is the kind of glue work that makes businesses run and never makes conference talks. Sales lives in HubSpot. Finance lives in the ERP. When a deal closes, a project classification field needs to travel from one world to the other, and until this connector existed it traveled by someone remembering to retype it. The requirement was one line: within about a minute of a deal closing, the ERP should know. Event-driven, tiny payload, no batch jobs.</p>
+  <p>The pipeline itself is the kind of glue work that makes businesses run and never makes conference talks. Sales lives in HubSpot and finance lives in the ERP. When a deal closes, a project classification field needs to travel from one world to the other, and until this connector existed it traveled by someone remembering to retype it. The requirement was one line: within about a minute of a deal closing, the ERP should know. So it's event-driven, with a tiny payload and no batch jobs.</p>
 
   <p>My first version authenticated the webhook the way I suspect most first versions do. I generated a long random string, put it in an environment variable, configured HubSpot to send it in a custom header, and compared the two:</p>
 
   <pre><code class="language-python">if x_webhook_token != WEBHOOK_TOKEN:
     raise HTTPException(status_code=401)</code></pre>
 
-  <p>A shared secret. It felt secure. The endpoint was HTTPS, the token was 64 characters of randomness, nobody was going to guess it. I shipped it and moved on. That version still exists in an older repository, and I've kept it deliberately, the way you keep an old photo with a bad haircut. It works. It even has tests. And it's a security design I'd now politely reject in someone else's code review.</p>
+  <p>It was a shared secret, and it felt secure: the endpoint was HTTPS, the token was 64 characters of randomness, and nobody was going to guess it. I shipped it and moved on. That version still exists in an older repository, and I've kept it deliberately, the way you keep an old photo with a bad haircut. It works, it even has tests, and it's a security design I'd now politely reject in someone else's code review.</p>
 
   <p>Then, while setting up the HubSpot side properly (a private app with the minimal <code>crm.objects.deals.read</code> scope, because the connector reads deal properties and needs nothing else), I noticed the settings had a section I'd skipped: request signatures. HubSpot signs every webhook it sends with something called an <code>X-HubSpot-Signature-V3</code> header. I went to the docs expecting a five-minute read. I came out an hour later having understood, for the first time, what my token approach was actually missing.</p>
 
   <h2>What the token doesn't protect</h2>
 
-  <p>Here's the thing about a static token in a header: it proves the sender knows the secret. That's all it proves. It says nothing about the <em>message</em>.</p>
+  <p>A static token in a header proves the sender knows the secret, and that's all it proves. It says nothing about the <em>message</em>.</p>
 
-  <p>If anyone ever captures one request, they now have everything. A misconfigured proxy that logs headers is enough. A debugging session where someone pastes a curl command into a ticket is enough. From that moment they can send my endpoint any payload they like, forever, and every request will look legitimate. They can also take a real request and replay it next week. The token never expires, never changes per request, and doesn't bind to the body at all.</p>
+  <p>If anyone ever captures one request, they now have everything. A misconfigured proxy that logs headers is enough, and so is a debugging session where someone pastes a curl command into a ticket. From that moment they can send my endpoint any payload they like, forever, and every request will look legitimate. They can also take a real request and replay it next week. The token never expires, never changes per request, and doesn't bind to the body at all.</p>
 
-  <p>Think about what that means for this specific endpoint. The payload carries a deal ID and a field value, and the endpoint writes that value into a finance system. With a captured token, an attacker doesn't need to understand anything about my code. They can update ERP records by POST request. The blast radius of "one field sync" is bigger than it looks the moment the destination is a system accountants trust.</p>
+  <p>On this particular endpoint, the payload carries a deal ID and a field value, and the endpoint writes that value into a finance system. With a captured token, an attacker doesn't need to understand anything about my code, because they can update ERP records with a plain POST request. The blast radius of "one field sync" is bigger than it looks the moment the destination is a system accountants trust.</p>
 
   <p>HMAC fixes all three problems at once, which is why every serious webhook provider uses some version of it. The sender computes a signature over the actual request (method, URL, body, timestamp) using the shared secret as the key. The receiver recomputes it and compares. Change one byte of the payload and the signature breaks. Replay an old request and the timestamp gives it away. And the secret itself never travels over the wire.</p>
 
@@ -88,7 +88,7 @@ sequenceDiagram
     EP-->>HS: 200
   </pre>
 
-  <p>Missing headers: 401. A timestamp older than five minutes: 401. That second one is the replay protection, a window small enough that a captured request goes stale before an attacker can do much with it. And finally the signature comparison itself:</p>
+  <p>Missing headers get a 401, and so does a timestamp older than five minutes. That second check is the replay protection, a window small enough that a captured request goes stale before an attacker can do much with it. And finally the signature comparison itself:</p>
 
   <pre><code class="language-python">if not hmac.compare_digest(expected, received):
     raise HTTPException(status_code=401, detail="Invalid signature")</code></pre>
@@ -97,7 +97,7 @@ sequenceDiagram
 
   <blockquote class="pullquote">Reading a webhook signature spec is a compressed history of everything that has gone wrong with webhooks.</blockquote>
 
-  <p>Only after all three gates pass does the boring part run: map the HubSpot property to the ERP field name, wrap it in the ERP's nested element format, POST it with the ERP's own token auth. Two different authentication worlds meet in sixty lines. I verify HubSpot cryptographically because its requests arrive unsolicited. The ERP accepts my token because I initiate that call over TLS to a known host. Same connector, two threat models, and the asymmetry is itself instructive.</p>
+  <p>Only after all three gates pass does the boring part run: map the HubSpot property to the ERP field name, wrap it in the ERP's nested element format, POST it with the ERP's own token auth. So those sixty lines handle two different kinds of authentication. I verify HubSpot cryptographically because its requests arrive unsolicited, while the ERP accepts my token because I initiate that call over TLS to a known host. Having both threat models side by side in one small connector made the difference between them easy to see.</p>
 
   <h2>The bugs that taught me the format</h2>
 
@@ -109,13 +109,13 @@ sequenceDiagram
 
   <h2>Secrets, and where they live</h2>
 
-  <p>The last piece of hygiene: the connector holds two secrets, the webhook signing secret and the ERP token, and neither appears in the repository. They arrive via environment variables, loaded from a <code>.env</code> file locally and injected by the platform in deployment. This sounds like table stakes, and it is. But the v1-versus-v2 comparison sharpened something for me. In the token-header design, the secret <em>is</em> the authentication, so leaking it is total compromise. In the HMAC design, the secret never crosses the network after setup, and even a leaked request log reveals only signatures, useless without the key and stale within five minutes. Good schemes degrade gracefully. Bad ones fail absolutely.</p>
+  <p>The last piece of hygiene: the connector holds two secrets, the webhook signing secret and the ERP token, and neither appears in the repository. They arrive via environment variables, loaded from a <code>.env</code> file locally and injected by the platform in deployment. This sounds like table stakes, and it is. But the v1-versus-v2 comparison sharpened something for me. In the token-header design, the secret <em>is</em> the authentication, so leaking it is total compromise. In the HMAC design, the secret never crosses the network after setup, and even a leaked request log reveals only signatures, useless without the key and stale within five minutes. So when something leaks, the HMAC design degrades gracefully and the token design fails completely.</p>
 
   <h2>Was the token version ever attacked?</h2>
 
-  <p>Almost certainly not. It ran quietly, syncing deal fields into the ERP within a minute of a deal closing, and no one ever tried to forge a request to an obscure endpoint that updates one field. That's not really the point though. The cost of doing it right was an afternoon and about forty lines of code. The cost of doing it wrong is unbounded and invisible. You don't get a notification when someone starts replaying your webhooks.</p>
+  <p>Almost certainly not. It ran quietly, syncing deal fields into the ERP within a minute of a deal closing, and no one ever tried to forge a request to an obscure endpoint that updates one field. That's not really the point though. Doing it right cost an afternoon and about forty lines of code. The cost of doing it wrong is unbounded and invisible, because you don't get a notification when someone starts replaying your webhooks.</p>
 
-  <p>What stays with me is how much design is packed into a scheme this small. The timestamp window, the ordered concatenation, the constant-time compare. Each one exists because someone, somewhere, exploited its absence. Worth the hour.</p>
+  <p>What stays with me is how much design is packed into a scheme this small. The timestamp window, the ordered concatenation and the constant-time compare each exist because someone, somewhere, exploited their absence. That hour in the docs was well spent.</p>
 
   <h2>References</h2>
   <ul class="references">
