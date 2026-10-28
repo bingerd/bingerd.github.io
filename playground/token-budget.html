@@ -55,9 +55,9 @@
 
 <main>
   <h1>Token Budget Visualizer</h1>
-  <p><em>8,192 tokens. Everything must fit. Something has to give.</em></p>
+  <p><em>Everything has to fit in 8,192 tokens, so something has to give.</em></p>
 
-  <p>When I built <a href="../docs/blog/2026/atlas-context-engineering.html">Atlas</a>, an AI that runs entirely on a phone, the context window stopped being an abstraction and became a housing crisis. The system prompt needs a room. The retrieved documents need a room. The conversation history wants the whole floor. And your new message just walked in the door. Below is the exact negotiation, live.</p>
+  <p>When I built <a href="../docs/blog/2026/atlas-context-engineering.html">Atlas</a>, an AI that runs entirely on a phone, the context window went from an abstraction to a housing crisis. The system prompt and the retrieved documents each need a room, the conversation history wants the whole floor, and then your new message walks in the door. This page runs the same negotiation live.</p>
 
   <p>Type or paste something into the box. Your text claims space using the same heuristic Atlas uses for packing decisions: roughly one token per four UTF-8 bytes, deliberately over-estimated (better to under-fill than overflow). Then drag the history slider up and watch the eviction policy work: when the window overruns, the <em>oldest</em> conversation turns get pushed out first, one by one, while recent exchanges survive. That newest-first packing is smarter than a fixed "keep last 10 messages" because it adapts to how long the messages actually are.</p>
 
@@ -88,7 +88,7 @@
 
   <ol class="history-list" id="histList" reversed></ol>
 
-  <p style="margin-top:32px;">In Atlas this happens before every single model call, in microseconds, with a test suite checking the estimator never drifts from the real tokenizer. The full story: <a href="../docs/blog/2026/atlas-context-engineering.html">Fitting a Second Brain Into 8,192 Tokens →</a></p>
+  <p style="margin-top:32px;">In Atlas this runs before every model call and takes microseconds, and a test suite checks that the estimator never drifts from the real tokenizer. The full story: <a href="../docs/blog/2026/atlas-context-engineering.html">Fitting a Second Brain Into 8,192 Tokens →</a></p>
 </main>
 
 <footer>© 2026 Bing Tan</footer>
@@ -161,7 +161,7 @@
 
     var verdict = document.getElementById('verdict');
     if (over) {
-      verdict.textContent = 'OVERFLOW: your message alone exceeds the window. Even eviction can’t save you — this is where chunking starts.';
+      verdict.textContent = 'OVERFLOW: your message alone exceeds the window, so no amount of eviction helps. This is where chunking starts.';
       verdict.className = 'verdict over';
     } else if (squeezedRet) {
       verdict.textContent = 'All history evicted AND retrieval squeezed to ' + retShown + ' tokens. The model now knows almost nothing except your message.';

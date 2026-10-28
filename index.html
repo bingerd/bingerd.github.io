@@ -4,10 +4,10 @@
 <meta charset="UTF-8" />
 <title>Bing Tan — Machine Learning Engineer</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="description" content="Bing Tan — Machine Learning Engineer. Production ML systems, low-latency inference, and the quiet satisfaction of watching p99 drop." />
+<meta name="description" content="Bing Tan is a machine learning engineer who builds production ML systems and low-latency inference, mostly for the quiet satisfaction of watching p99 drop." />
 
 <meta property="og:title" content="Bing Tan — Machine Learning Engineer" />
-<meta property="og:description" content="I reduce loss functions for a living. Production ML systems at scale." />
+<meta property="og:description" content="I reduce loss functions for a living, mostly in production ML systems that serve a lot of traffic." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://bngrd.com/" />
 <meta property="og:image" content="https://bngrd.com/og-image.png" />
@@ -65,17 +65,17 @@
   <div class="container">
     <p class="hero-label"><code>loss=0.001 · status=converged</code></p>
     <h1 class="hero-title">I reduce <em>loss functions</em> for a living.</h1>
-    <p class="hero-sub">Production ML systems, low-latency inference, and the quiet satisfaction of watching p99 drop. Currently deployed at scale.</p>
+    <p class="hero-sub">I build production ML systems and low-latency inference, mostly for the quiet satisfaction of watching p99 drop.</p>
     <a class="hero-latest" id="heroLatest" href="#blog" hidden></a>
     <div class="hero-stats">
       <div class="stat"><span class="stat-num" data-years-since>2+</span><span class="stat-label">Years shipping ML</span></div>
       <div class="stat"><span class="stat-num">50M+</span><span class="stat-label">Daily predictions, team platform</span></div>
-      <div class="stat"><span class="stat-num">42%</span><span class="stat-label">p99 latency cut — story below</span></div>
+      <div class="stat"><span class="stat-num">42%</span><span class="stat-label">p99 latency cut (story below)</span></div>
       <div class="stat"><span class="stat-num">7</span><span class="stat-label">Easter eggs on this site</span></div>
     </div>
     <div class="hero-foot">
       <a class="cta" href="#about">Learn More</a>
-      <p class="hero-fig" aria-hidden="true">fig. 1 — three optimizers racing downhill, live: <i class="sgd">SGD</i><i class="mom">Momentum</i><i class="adam">Adam</i></p>
+      <p class="hero-fig" aria-hidden="true">fig. 1 · three optimizers racing downhill, live: <i class="sgd">SGD</i><i class="mom">Momentum</i><i class="adam">Adam</i></p>
     </div>
   </div>
 </section>
@@ -94,9 +94,9 @@
         <dt>Training Data</dt>
         <dd>BSc & MSc Business Analytics @ VU Amsterdam (Computational Intelligence track), <span data-years-since>2+</span> years industry ML</dd>
         <dt>Intended Use</dt>
-        <dd>Production ML systems, inference optimization, scale</dd>
+        <dd>Production ML at scale, especially inference optimization</dd>
         <dt>Fine-tuned On</dt>
-        <dd>PyTorch, Kubernetes, late-night debugging sessions</dd>
+        <dd>PyTorch, Kubernetes and a lot of late-night debugging</dd>
         <dt>Hyperparameters</dt>
         <dd><code>curiosity=0.95, persistence=0.92, coffee_intake=high</code></dd>
         <dt>Known Limitations</dt>
@@ -106,16 +106,16 @@
       </dl>
     </div>
     <div class="about-personal tile">
-      <p>Most ML engineers come from computer science. I came from business analytics. My MSc at VU Amsterdam had me building deep learning models in the Computational Intelligence track, but my undergrad taught me something most engineers skip: why the model matters to the business. A model that doesn't ship is just a notebook.</p>
-      <p>My work runs the whole altitude range: multi-task transformers serving e-commerce search at 1000 requests per second, and a personal AI app where the entire model fits on a phone and the network is not an option. Same discipline at both ends — count your milliseconds, budget your tokens, test your invariants.</p>
-      <p>When I'm not shipping, I'm teaching cloud engineering to TU Delft students, running my house on GitOps, or building <a href="#playground">interactive toys</a> that explain how this stuff actually works.</p>
+      <p>I came to ML through business analytics rather than the usual computer science route. My MSc at VU Amsterdam (Computational Intelligence track) had me building deep learning models, but my undergrad is where I learned to ask why a model matters to the business, which plenty of engineers skip. Usually the answer starts with getting it out of a notebook and into production.</p>
+      <p>My work covers a lot of altitude. At one end there are multi-task transformers serving e-commerce search at 1000 requests per second; at the other, a personal AI app where the entire model fits on a phone and calling a server isn't an option. Both need the same habits from me: I count milliseconds and tokens, and I put the invariants under test.</p>
+      <p>When I'm not shipping, I teach cloud engineering to TU Delft students and run my house on GitOps. I also build <a href="#playground">interactive toys</a> that show how this stuff works.</p>
     </div>
     <div class="about-content tile">
       <h3 class="section-label">Primary Capabilities</h3>
       <div class="about-focus">
         <div class="focus-item">
           <h3>Training & NLP</h3>
-          <p>Multi-task transformers, domain adaptation, hyperparameter search, evaluation discipline</p>
+          <p>Multi-task transformers, domain adaptation, hyperparameter search, evaluation on real data</p>
         </div>
         <div class="focus-item">
           <h3>Serving & Infrastructure</h3>
@@ -135,11 +135,11 @@
   <div class="container">
     <h2 class="section-title">How I Think</h2>
     <div class="beliefs">
-      <blockquote>The best model is the one that's actually in production.</blockquote>
-      <blockquote>If your eval set is synthetic, you don't have an evaluation. You have an optimistic simulation.</blockquote>
-      <blockquote>Before blending two scores, prove they share a scale. With a test, not a comment.</blockquote>
-      <blockquote>terraform destroy is a cost-control habit, not an emergency procedure.</blockquote>
-      <blockquote>The model is the voice. Never the librarian.</blockquote>
+      <blockquote>I don't count a model as done until it's serving real traffic in production.</blockquote>
+      <blockquote>I read scores on a synthetic eval set as an upper bound, since our classifier lost eight F1 points the moment it met real queries.</blockquote>
+      <blockquote>Before I blend two scores, I write a test proving they're on the same scale. A comment saying so isn't enough.</blockquote>
+      <blockquote>I treat terraform destroy as routine cost control. We ran it after every load-test session.</blockquote>
+      <blockquote>I let deterministic code do the finding and keep the model to narrating what it found.</blockquote>
     </div>
   </div>
 </section>
@@ -201,8 +201,8 @@
         <h3>One Encoder, Three Jobs</h3>
         <div class="case-study-narrative">
           <p>Search intent classification for a large Dutch e-commerce platform grew into three BERT models: buying intent, brand/creator recognition, and category prediction over roughly fifteen thousand labels. Three models meant three forward passes on every query, at search-traffic volumes.</p>
-          <p>All three were fine-tuned from the same domain-adapted encoder, and only the top layers diverged. So we composed them into a single system model: one pass through shared layers 0–9, branching at layer 10 into three task-specific heads. One tokenization, one encoder run, three answers.</p>
-          <p>The humbling lesson came from evaluation: the model looked great on synthetic held-out sets, then dropped eight F1 points on real labeled queries. Real data dominated evaluation from that day on.</p>
+          <p>All three were fine-tuned from the same domain-adapted encoder, and only the top layers diverged. So we composed them into a single system model: one pass through shared layers 0 to 9, branching at layer 10 into three task-specific heads. Each query gets tokenized once and runs through the encoder once, and all three answers come out the other end.</p>
+          <p>Evaluation is where I got humbled. The model looked great on synthetic held-out sets and then dropped eight F1 points on real labeled queries. From then on, real data dominated our evaluation.</p>
         </div>
         <div class="case-study-metrics">
           <div class="metric"><div class="metric-value">2.5×</div><div class="metric-label">Faster Than Separate Models</div></div>
@@ -215,8 +215,8 @@
       <div class="case-study">
         <h3>The 150-Millisecond Question</h3>
         <div class="case-study-narrative">
-          <p>The serving side of that classifier had one non-negotiable: P90 under 150 milliseconds at 1000 requests per second. Three Terraform stacks with separate lifecycles — training, serving, and a stress-test cluster whose only job was to attack the serving cluster with Locust, because at 1000 RPS the load generator is a distributed system too.</p>
-          <p>The headline finding wasn't in the infrastructure. It was in the API process: collecting requests in an async queue and draining up to 16 of them every 10 milliseconds into one forward pass tripled sustainable throughput on identical hardware. Runner-up: <code>torch.set_num_threads(1)</code>, because PyTorch's eagerness to parallelize small inferences meant threads fighting each other under load.</p>
+          <p>The serving side of that classifier had one non-negotiable: P90 under 150 milliseconds at 1000 requests per second. We split the infrastructure into three Terraform stacks with separate lifecycles: training, serving, and a stress-test cluster whose only job was to attack the serving cluster with Locust. At 1000 RPS the load generator has to be a distributed system too.</p>
+          <p>The biggest win came from the API process rather than the infrastructure. Collecting requests in an async queue and draining up to 16 of them every 10 milliseconds into one forward pass tripled sustainable throughput on identical hardware. Second place went to <code>torch.set_num_threads(1)</code>: PyTorch likes to parallelize even small inferences, and under load those threads ended up fighting each other.</p>
         </div>
         <div class="case-study-metrics">
           <div class="metric"><div class="metric-value">3×</div><div class="metric-label">Throughput From Batching</div></div>
@@ -229,13 +229,13 @@
       <div class="case-study">
         <h3>A Second Brain in 8,192 Tokens</h3>
         <div class="case-study-narrative">
-          <p>My first iOS app: a personal AI second brain where the model runs entirely on the phone. No API, no server — the app's only network request is downloading the model itself, once. The context window is 8,192 tokens on a good device, and everything must fit.</p>
-          <p>The constraint became the architect. Search never touches the LLM: hybrid BM25 + vector retrieval answers in under half a millisecond. Token budgets are enforced by a cheap estimator validated against the real tokenizer in CI. And privacy is a compile-time property: a test scans every source file and fails the build if networking primitives appear outside the one sanctioned download function.</p>
+          <p>This is my first iOS app, a personal AI second brain where the model runs entirely on the phone. There's no API and no server. The only network request the app ever makes is the one-time download of the model itself. The context window is 8,192 tokens on a good device, and everything has to fit in it.</p>
+          <p>That limit ended up shaping most of the design. Search never touches the LLM; hybrid BM25 + vector retrieval answers in under half a millisecond. A cheap estimator enforces the token budgets, and CI checks it against the real tokenizer. Privacy is a compile-time property: a test scans every source file and fails the build if networking primitives show up anywhere outside the one sanctioned download function.</p>
         </div>
         <div class="case-study-metrics">
           <div class="metric"><div class="metric-value">0.3ms</div><div class="metric-label">Keyword Search Latency</div></div>
           <div class="metric"><div class="metric-value">8,192</div><div class="metric-label">Token Budget, Everything Included</div></div>
-          <div class="metric"><div class="metric-value">0</div><div class="metric-label">Network Calls (Tested, Not Promised)</div></div>
+          <div class="metric"><div class="metric-value">0</div><div class="metric-label">Network Calls, Enforced by a Test</div></div>
         </div>
         <a class="case-study-link" href="docs/blog/2026/atlas-context-engineering.html">Read the full story →</a>
       </div>
@@ -274,32 +274,32 @@
 <section id="projects" data-loading-text="Compiling computation graph...">
   <div class="container">
     <h2 class="section-title">Systems I've Built</h2>
-    <p class="section-intro">Some for clients, some for me. Every one of them has a story — click through.</p>
+    <p class="section-intro">Some for clients, some for me, and each one has a write-up behind it.</p>
     <div class="projects">
       <div class="card visible">
         <h3>Receipt-Reading Expense Agent</h3>
-        <p>An AI agent that reads receipt photos with a vision model, checks them against expense policy, and politely declines your Netflix subscription. Evaluated like software, not vibes.</p>
+        <p>An AI agent that reads receipt photos with a vision model, checks them against expense policy, and politely declines your Netflix subscription. It gets evaluated with a real test suite, like any other software.</p>
         <span class="card-scale">In production</span>
         <div class="card-tags"><span>Agents</span><span>Vision LLM</span><span>Evals</span></div>
         <a class="case-study-link" href="docs/blog/2026/receipt-agent.html">Read the story →</a>
       </div>
       <div class="card visible">
         <h3>AI Agents Course</h3>
-        <p>A 2-day hands-on course on building and evaluating AI agents. Designing the agents was the easy part — testing non-deterministic systems in front of a room was the real curriculum.</p>
+        <p>A 2-day hands-on course on building and evaluating AI agents. Designing the agents was the easy part. The hard part, and most of what I ended up teaching, was testing non-deterministic systems live in front of a room.</p>
         <span class="card-scale">2 days, hands-on</span>
         <div class="card-tags"><span>Google ADK</span><span>Multi-agent</span><span>Evals</span></div>
         <a class="case-study-link" href="docs/blog/2026/agent-course.html">Read the story →</a>
       </div>
       <div class="card visible">
         <h3>Home Platform on GitOps</h3>
-        <p>A k3s cluster running Home Assistant, Matter, and everything else my house needs. Every change is a git push; Argo CD does the rest. My thermostat has a deployment pipeline.</p>
+        <p>A k3s cluster running Home Assistant, Matter and everything else my house needs. Every change is a git push and Argo CD handles the rest, which means my thermostat has a deployment pipeline.</p>
         <span class="card-scale">Prod uptime, at home</span>
         <div class="card-tags"><span>k3s</span><span>Argo CD</span><span>Home Assistant</span></div>
         <a class="case-study-link" href="docs/blog/2026/home-cluster-gitops.html">Read the story →</a>
       </div>
       <div class="card visible">
         <h3>Self-Terminating Minecraft Server</h3>
-        <p>A cloud Minecraft server that checks its own player count and kills itself when nobody's online. Preemptible VMs, Terraform, and a world that persists between suicides.</p>
+        <p>A cloud Minecraft server that checks its own player count and kills itself when nobody's online. It runs on preemptible VMs set up with Terraform, and the world persists between suicides.</p>
         <span class="card-scale">€0 when idle</span>
         <div class="card-tags"><span>Terraform</span><span>GCP</span><span>Preemptible VMs</span></div>
         <a class="case-study-link" href="docs/blog/2026/minecraft-server-killswitch.html">Read the story →</a>
@@ -312,7 +312,7 @@
 <section id="blog" data-loading-text="Backpropagating through memories...">
   <div class="container">
     <h2 class="section-title">Writing</h2>
-    <p class="section-intro">Technical deep-dives on ML systems, infrastructure, and lessons from production.</p>
+    <p class="section-intro">Technical write-ups on ML systems and infrastructure, and what I've learned running them in production.</p>
     <div class="blog-grid" id="blogGrid"></div>
   </div>
 </section>
@@ -322,24 +322,24 @@
     <div class="fun-section">
       <div class="fun-header">
         <h2 class="section-title">ML Playground</h2>
-        <p>Real algorithms, running in your browser. No servers, no API keys, no tricks. View source welcome.</p>
+        <p>These are real algorithms running in your browser. There's no server or API key behind any of them, and you're welcome to view source.</p>
       </div>
 
       <div class="experiments-grid">
         <a href="playground/neural-trainer.html" class="experiment-card">
           <span class="experiment-icon">&#9673;</span>
           <h3>Neural Trainer</h3>
-          <p>Watch a tiny neural network learn, live. Hand-written backprop, no libraries.</p>
+          <p>Watch a tiny neural network learn in real time, with backprop written by hand and no libraries.</p>
         </a>
         <a href="playground/gradient-descent.html" class="experiment-card">
           <span class="experiment-icon">&#8600;</span>
           <h3>Gradient Descent</h3>
-          <p>Drop a ball on a loss surface. Pick a learning rate. Converge or explode.</p>
+          <p>Drop a ball on a loss surface, pick a learning rate, and see whether it converges or explodes.</p>
         </a>
         <a href="playground/batching-sim.html" class="experiment-card">
           <span class="experiment-icon">&#9646;&#9646;</span>
           <h3>Batching Simulator</h3>
-          <p>Why batching tripled our throughput: tune RPS, batch size and window, watch p99 move.</p>
+          <p>Tune RPS, batch size and window, then watch p99 move. It shows why batching tripled our throughput.</p>
         </a>
         <a href="playground/token-budget.html" class="experiment-card">
           <span class="experiment-icon">&#9636;</span>
@@ -349,12 +349,12 @@
         <a href="playground/hybrid-search.html" class="experiment-card">
           <span class="experiment-icon">&#8981;</span>
           <h3>Hybrid Search</h3>
-          <p>Real BM25 versus toy semantics over this site's own blog posts. Blend them yourself.</p>
+          <p>Real BM25 against toy semantic search over this site's own blog posts, and you pick the blend.</p>
         </a>
         <a href="games/backprop-runner-canyon.html" class="experiment-card">
           <span class="experiment-icon">&#9654;</span>
           <h3>Backprop Runner</h3>
-          <p>3D endless runner where you dodge gradient collapse.</p>
+          <p>A 3D endless runner where you dodge gradient collapse.</p>
         </a>
       </div>
 
@@ -365,7 +365,7 @@
 <section id="contact">
   <div class="container">
     <h2 class="section-title">Contact</h2>
-    <p class="contact-intro">My inference endpoint is always warm. Reach out about ML systems, interesting problems, or your hot take on batch normalization.</p>
+    <p class="contact-intro">My inference endpoint is always warm. Write to me about ML systems or an interesting problem, or just send your hot take on batch normalization.</p>
     <a class="contact-big" href="mailto:bxntan@gmail.com">Say <em>hello</em> ↗</a>
     <div class="contact-links">
       <a href="mailto:bxntan@gmail.com" aria-label="Send email to Bing Tan" title="Email">

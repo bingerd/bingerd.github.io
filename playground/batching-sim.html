@@ -40,9 +40,9 @@
   <h1>Request Batching Simulator</h1>
   <p><em>The trick that tripled our throughput, as a toy you can break.</em></p>
 
-  <p>Transformers are throughput machines. A forward pass over 16 inputs costs nowhere near 16 times a single input, because the fixed overhead (kernel launches, memory movement) dominates small workloads. So production ML servers play a counterintuitive game: when a request arrives, they <em>wait</em>. A few milliseconds, hoping others arrive too, then run the whole group through the model at once. Each request pays a tiny waiting tax so that all of them get a massively cheaper ride.</p>
+  <p>Transformers are built for throughput. A forward pass over 16 inputs costs nowhere near 16 times a single input, because the fixed overhead (kernel launches, memory movement) dominates small workloads. So production ML servers do something that sounds backwards: when a request arrives, they <em>wait</em> a few milliseconds in the hope that others arrive too, then run the whole group through the model at once. Each request pays a small waiting tax, and in return all of them ride much cheaper.</p>
 
-  <p>This simulation runs that exact mechanism. Requests arrive randomly at your chosen rate, a batcher collects up to N of them for at most W milliseconds, and the "model" charges a realistic sub-linear cost per batch. Watch what happens at 800 RPS with batching off (batch size 1): the queue grows without bound and p99 goes vertical. That's a real Tuesday. Then give it a 10ms window and a batch of 16, and watch the same traffic become boring. Boring is the goal.</p>
+  <p>This simulation does the same thing. Requests arrive randomly at your chosen rate, a batcher collects up to N of them for at most W milliseconds, and the "model" charges a realistic sub-linear cost per batch. Try 800 RPS with batching off (batch size 1) and the queue grows without bound while p99 goes vertical, same as on a bad Tuesday in production. Then give it a 10ms window and a batch of 16 and watch the same traffic become boring, which is the whole point.</p>
 
   <div class="controls">
     <label>Arrival rate: <span id="rpsVal">400</span> req/s
@@ -60,7 +60,7 @@
     <div class="metric-box"><div class="v" id="qdepth">—</div><div class="l">queue depth</div></div>
   </div>
 
-  <p style="margin-top:32px;">The model here charges <code>8ms + 2ms × batch^0.7</code> per forward pass, which is roughly how real inference scales: a batch of 16 costs about 3× a batch of 1, not 16×. That gap is the entire business case. The real story, including the load-testing cluster we built to find this: <a href="../docs/blog/2026/terraform-load-testing.html">Terraform, GKE, and the 150-Millisecond Question →</a></p>
+  <p style="margin-top:32px;">The model here charges <code>8ms + 2ms × batch^0.7</code> per forward pass, which is roughly how real inference scales: a batch of 16 costs about 2.2× a batch of 1 instead of 16×, and that gap is the entire business case for batching. The real story, including the load-testing cluster we built to find this: <a href="../docs/blog/2026/terraform-load-testing.html">Terraform, GKE, and the 150-Millisecond Question →</a></p>
 </main>
 
 <footer>© 2026 Bing Tan</footer>
