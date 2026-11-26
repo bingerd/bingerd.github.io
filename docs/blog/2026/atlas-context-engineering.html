@@ -37,6 +37,11 @@
   <h1>Fitting a Second Brain Into 8,192 Tokens</h1>
   <p><em>July 2026 · 13 min read</em></p>
 
+  <div class="playground-callout">
+    <p class="pc-label">Update, November 2026</p>
+    <p>Atlas has changed a lot since I wrote this. Some details below are out of date: Gemma is no longer the only model, the embedder changed, and the one-network-request rule picked up three carefully fenced exceptions. <a href="atlas-july-to-november.html">Atlas, July to November</a> covers what changed and links the rest of the series.</p>
+  </div>
+
   <p>I spent this year building my first iOS app, and I picked a fight with physics to do it. It's a personal AI "second brain" for notes, documents, calendar and health data, and the model runs entirely on the phone. There's no API and no server behind it; the app's one and only network request downloads the model itself, once.</p>
 
   <p>Everyone building LLM apps talks about prompt engineering. What on-device work teaches you, brutally and immediately, is <em>context</em> engineering. My model is a Gemma small enough to run on a phone. My context window is 8,192 tokens on a good device and 4,096 on a lesser one, sized by an available-memory check at startup. Into that space must fit the system prompt, the conversation so far, and whatever fragments of your knowledge actually answer the question, and all three are fighting over the same tokens.</p>

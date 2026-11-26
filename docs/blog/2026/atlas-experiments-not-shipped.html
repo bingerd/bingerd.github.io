@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>The Experiments I Didn't Ship — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Four months of measuring ideas for Atlas, my on-device AI second brain, and mostly saying no: a bigger embedder, a knowledge graph, PageIndex-style sections and more, each with the number that decided it." />
+  <meta property="og:title" content="The Experiments I Didn't Ship" />
+  <meta property="og:description" content="A headless harness over the real index, a dev/holdout rule, and eight experiments with the metric that decided each one. Six were rejected, and each rejection taught me something." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/atlas-experiments-not-shipped.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/atlas-experiments-not-shipped.html" />
+  <meta name="theme-color" content="#0c0b0a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f3eee4" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+  <link rel="stylesheet" href="../../../css/posts/atlas-experiments-not-shipped.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>The Experiments I Didn't Ship</h1>
+  <p><em>November 2026 · 13 min read</em></p>
+
+  <div class="playground-callout"><p class="pc-label">Get the app</p><p><strong>Atlas: Private On-Device AI</strong> is on the App Store: <a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=iphone">download for iPhone &amp; iPad</a> or <a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=mac">download for Mac</a>.</p></div>
+
+  <p>Most of what I built for Atlas between August and November never reached the App Store. I tried a bigger embedder, a knowledge graph with typed edges written by the model, a PageIndex-style section index, a different way of scaling BM25 scores, a shortcut for the 8B model's diagram drafts and a bigger context window for the small LFM models. Every one of them looked like an obvious improvement on paper, and every one lost on a number I had written down before I started.</p>
+
+  <p>I think these are the most useful results of the autumn, because a rejection with a measurement tells you something about the problem itself. This post covers the tooling, the rule I follow when reading the numbers, and the experiments.</p>
+
+  <div class="playground-callout series-box">
+    <p class="pc-label">Atlas series</p>
+    <ol>
+      <li><a href="atlas-context-engineering.html">Fitting a Second Brain Into 8,192 Tokens</a> (the July original)</li>
+      <li><a href="atlas-small-models.html">Taming Small Models That Don't Speak Your Tool Protocol</a></li>
+      <li><a href="atlas-retrieve-then-generate.html">Retrieve, Then Generate: Closing the Speed Gap on a Phone</a></li>
+      <li><a href="atlas-network-boundary.html">Letting the Network In Without Letting the Data Out</a></li>
+      <li><a href="atlas-ears-and-eyes.html">Ears and Eyes on a Phone: Voice and Vision in Atlas</a></li>
+      <li><strong>The Experiments I Didn't Ship</strong></li>
+      <li><a href="atlas-july-to-november.html">Atlas, July to November</a></li>
+    </ol>
+  </div>
+
+  <h2>A harness that runs on the real index</h2>
+
+  <p>For the first few months, my retrieval work ran against a synthetic golden set of hand-written notes, events and contacts with known answers. It is still the regression gate in <code>swift test</code>, but it only contains the failures I could imagine. My real index has about 4,400 documents across notes, mail, calendar and contacts, and it fails in ways I would never write into a fixture.</p>
+
+  <p>So I built <code>AtlasCLI</code>, a headless command-line tool that opens a snapshot of the live app's index (a GRDB backup, so the running app is never touched) and runs the engine without any UI. The important design choice is that <code>search</code> calls the exact function the chat turn uses for its LLM-free pre-retrieval. If the harness prints a bad list of excerpts, that is the same list the model saw when it gave a bad answer.</p>
+
+  <p>On top of that sit a handful of diagnostic commands I use constantly:</p>
+
+  <ul>
+    <li><code>explain &lt;query&gt; &lt;rank&gt;</code> follows one excerpt through every stage (retrieve, filter, rerank, calendar, recency, rollup, caps, backfill) and prints its keyword, semantic and combined scores along with its rank at each stage. When a document is missing from the answer, this tells me which stage dropped it.</li>
+    <li><code>batch --judge &lt;model&gt;</code> runs a file of queries and has a local model answer YES or NO for each excerpt. Small judges are noisy, so I only read the difference between two runs and ignore the absolute numbers.</li>
+    <li><code>replay</code> reruns my past chat turns and shows the excerpts then and now.</li>
+    <li><code>label</code> lets me mark which excerpts were relevant to my own past questions. Those labels are stored outside the repository and form the holdout set, which I come back to below.</li>
+    <li><code>freeze</code> turns a slice of the real index into a redacted fixture for a regression test, so a failure I found in my own data can become a test without my data entering the repo.</li>
+  </ul>
+
+  <!-- IMAGE SLOT: Terminal screenshot of `AtlasCLI explain` on a synthetic or redacted query, showing the per-stage rank table and the keyword/semantic/combined score breakdown (docs/blog/images/atlas-cli-explain.png) -->
+
+  <p>Before the harness, I would change a ranking weight, watch the golden set's mean reciprocal rank (MRR) go up and move on. With it, I could watch the same change make my real questions worse.</p>
+
+  <h2>The bar that MiniLM set</h2>
+
+  <p>The one experiment from this stretch that did ship set the bar for the rest. In July, Atlas used Apple's built-in <code>NLEmbedding</code> for the semantic half of retrieval because it costs nothing to download. On 1 August I benchmarked four on-device embedders on the golden set, which had 101 documents at the time:</p>
+
+  <table>
+    <thead><tr><th>Embedder</th><th>recall@5</th><th>MRR</th><th>non-English</th><th>names found (of 6)</th><th>query embed, cold</th></tr></thead>
+    <tbody>
+      <tr><td>NLEmbedding (July default)</td><td>0.990</td><td>0.846</td><td>0.857</td><td>5</td><td>2.8 ms</td></tr>
+      <tr><td>NLContextualEmbedding</td><td>0.971</td><td>0.839</td><td></td><td>1</td><td>9.0 ms</td></tr>
+      <tr><td><strong>all-MiniLM-L6-v2</strong></td><td><strong>1.000</strong></td><td><strong>0.934</strong></td><td><strong>1.000</strong></td><td><strong>6</strong></td><td>10.8 ms</td></tr>
+      <tr><td>e5-small-v2</td><td>0.971</td><td>0.885</td><td></td><td>1</td><td>21.7 ms</td></tr>
+    </tbody>
+  </table>
+
+  <p>MiniLM won on every quality column. The name column mattered most to me, because "what did Priya say about the launch" is a typical second-brain question and embedders are bad at names. In that test, MiniLM moved the fixture contact Priya from rank 7 to rank 2. It costs about 8 ms more per query than NLEmbedding, which nobody will notice next to a language model's prefill. The model is 43 MB and ships inside the app, so nothing is downloaded and the index re-embeds itself after the update.</p>
+
+  <p>That table turned into the template for everything after it. Each experiment needed a metric, a baseline measured on the same day and a cost column. When I later grew the golden set from 46 to 95 documents and from 71 to 139 queries, recall went up (recall@5 from 0.941 to 0.990) while MRR eased to 0.861, mostly because a person's contact card now competes with the notes that mention them. I lowered the MRR gate from 0.90 to 0.83 on purpose and raised the recall gates at the same time.</p>
+
+  <h2>Tune on dev, decide on holdout</h2>
+
+  <p>The rule I settled on is simple to say and annoying to follow. The golden set, the harder set and the synthetic fixtures are the dev sets: I am allowed to look at them, tune weights on them and stare at their failures. The holdout is the set of relevance labels I made on my own past questions with <code>AtlasCLI label</code>. I never tune on it. A change has to win on dev and then hold up on the holdout, and a win that only shows up on dev counts as a rejection.</p>
+
+  <p>The second half of the rule is that a rejected arm gets deleted. The experiment's write-up stays in <code>docs/RETRIEVAL_BETS.md</code> with its numbers, and the code goes away.</p>
+
+  <p>Here is how the experiments in this post scored against the metric each one was judged on.</p>
+
+  <figure class="xn-fig" id="xn-score">
+    <div class="xn-scroll">
+<svg viewBox="0 0 726 478" role="img" aria-labelledby="xn-score-t">
+<title id="xn-score-t">Eight experiments, each with the metric it was judged on before and after. One shipped, one is next, six were rejected.</title>
+<defs><pattern id="xn-grid" width="12" height="12" patternUnits="userSpaceOnUse"><path class="xn-gridline" d="M12 0H0V12"/></pattern></defs>
+<g class="xn-card xn-ok" style="--d:0ms">
+  <rect class="xn-paper" x="4" y="4" width="172" height="230" rx="8"/>
+  <rect x="4" y="4" width="172" height="230" rx="8" fill="url(#xn-grid)"/>
+  <text class="xn-num" x="16" y="26">#1</text>
+  <text class="xn-title" x="16" y="46">MiniLM embedder</text>
+  <text class="xn-metric" x="16" y="64">golden MRR</text>
+  <line class="xn-axis" x1="26" x2="154" y1="182" y2="182"/>
+  <rect class="xn-bar xn-before" x="44" y="97.4" width="34" height="84.6"/>
+  <rect class="xn-bar xn-after xn-up" x="102" y="88.6" width="34" height="93.4"/>
+  <text class="xn-val" x="61" y="91.4">0.846</text>
+  <text class="xn-val xn-val-after" x="119" y="82.6">0.934</text>
+  <text class="xn-lab" x="61" y="198">NLEmbedding</text>
+  <text class="xn-lab" x="119" y="198">MiniLM</text>
+  <g class="xn-stamp" transform="translate(90 223) rotate(-4)"><rect x="-44" y="-12" width="88" height="22" rx="3"/><text y="4">SHIPPED</text></g>
+</g>
+<g class="xn-card xn-no" style="--d:90ms">
+  <rect class="xn-paper" x="186" y="4" width="172" height="230" rx="8"/>
+  <rect x="186" y="4" width="172" height="230" rx="8" fill="url(#xn-grid)"/>
+  <text class="xn-num" x="198" y="26">#2</text>
+  <text class="xn-title" x="198" y="46">EmbeddingGemma 2</text>
+  <text class="xn-metric" x="198" y="64">harder-set MRR</text>
+  <line class="xn-axis" x1="208" x2="336" y1="182" y2="182"/>
+  <rect class="xn-bar xn-before" x="226" y="111.7" width="34" height="70.3"/>
+  <rect class="xn-bar xn-after xn-down" x="284" y="124.9" width="34" height="57.099999999999994"/>
+  <text class="xn-val" x="243" y="105.7">0.703</text>
+  <text class="xn-val xn-val-after" x="301" y="118.9">0.571</text>
+  <text class="xn-lab" x="243" y="198">MiniLM</text>
+  <text class="xn-lab" x="301" y="198">EG2</text>
+  <g class="xn-stamp" transform="translate(272 223) rotate(-4)"><rect x="-44" y="-12" width="88" height="22" rx="3"/><text y="4">REJECTED</text></g>
+</g>
+<g class="xn-card xn-no" style="--d:180ms">
+  <rect class="xn-paper" x="368" y="4" width="172" height="230" rx="8"/>
+  <rect x="368" y="4" width="172" height="230" rx="8" fill="url(#xn-grid)"/>
+  <text class="xn-num" x="380" y="26">#3</text>
+  <text class="xn-title" x="380" y="46">BM25 rescale</text>
+  <text class="xn-metric" x="380" y="64">paraphrase recall@1</text>
+  <line class="xn-axis" x1="390" x2="518" y1="182" y2="182"/>
+  <rect class="xn-bar xn-before" x="408" y="107" width="34" height="75"/>
+  <rect class="xn-bar xn-after xn-down" x="466" y="144.5" width="34" height="37.5"/>
+  <text class="xn-val" x="425" y="101">0.75</text>
+  <text class="xn-val xn-val-after" x="483" y="138.5">0.375</text>
+  <text class="xn-lab" x="425" y="198">shipped</text>
+  <text class="xn-lab" x="483" y="198">rescaled</text>
+  <g class="xn-stamp" transform="translate(454 223) rotate(-4)"><rect x="-44" y="-12" width="88" height="22" rx="3"/><text y="4">REJECTED</text></g>
+</g>
+<g class="xn-card xn-no" style="--d:270ms">
+  <rect class="xn-paper" x="550" y="4" width="172" height="230" rx="8"/>
+  <rect x="550" y="4" width="172" height="230" rx="8" fill="url(#xn-grid)"/>
+  <text class="xn-num" x="562" y="26">#4</text>
+  <text class="xn-title" x="562" y="46">Oracle typed edges</text>
+  <text class="xn-metric" x="562" y="64">answer facts in prompt</text>
+  <line class="xn-axis" x1="572" x2="700" y1="182" y2="182"/>
+  <rect class="xn-bar xn-before" x="590" y="120.77551020408163" width="34" height="61.224489795918366"/>
+  <rect class="xn-bar xn-after xn-down" x="648" y="120.77551020408163" width="34" height="61.224489795918366"/>
+  <text class="xn-val" x="607" y="114.77551020408163">30/49</text>
+  <text class="xn-val xn-val-after" x="665" y="114.77551020408163">30/49</text>
+  <text class="xn-lab" x="607" y="198">mentions</text>
+  <text class="xn-lab" x="665" y="198">+30 edges</text>
+  <g class="xn-stamp" transform="translate(636 223) rotate(-4)"><rect x="-44" y="-12" width="88" height="22" rx="3"/><text y="4">REJECTED</text></g>
+</g>
+<g class="xn-card xn-no" style="--d:360ms">
+  <rect class="xn-paper" x="4" y="244" width="172" height="230" rx="8"/>
+  <rect x="4" y="244" width="172" height="230" rx="8" fill="url(#xn-grid)"/>
+  <text class="xn-num" x="16" y="266">#5</text>
+  <text class="xn-title" x="16" y="286">Section chunks</text>
+  <text class="xn-metric" x="16" y="304">paraphrase recall@1</text>
+  <line class="xn-axis" x1="26" x2="154" y1="422" y2="422"/>
+  <rect class="xn-bar xn-before" x="44" y="334" width="34" height="88"/>
+  <rect class="xn-bar xn-after xn-down" x="102" y="360" width="34" height="62"/>
+  <text class="xn-val" x="61" y="328">0.88</text>
+  <text class="xn-val xn-val-after" x="119" y="354">0.62</text>
+  <text class="xn-lab" x="61" y="438">shipped</text>
+  <text class="xn-lab" x="119" y="438">sections</text>
+  <g class="xn-stamp" transform="translate(90 463) rotate(-4)"><rect x="-44" y="-12" width="88" height="22" rx="3"/><text y="4">REJECTED</text></g>
+</g>
+<g class="xn-card xn-next" style="--d:450ms">
+  <rect class="xn-paper" x="186" y="244" width="172" height="230" rx="8"/>
+  <rect x="186" y="244" width="172" height="230" rx="8" fill="url(#xn-grid)"/>
+  <text class="xn-num" x="198" y="266">#6</text>
+  <text class="xn-title" x="198" y="286">800-token excerpts</text>
+  <text class="xn-metric" x="198" y="304">long-note answers</text>
+  <line class="xn-axis" x1="208" x2="336" y1="422" y2="422"/>
+  <rect class="xn-bar xn-before" x="226" y="347" width="34" height="75"/>
+  <rect class="xn-bar xn-after xn-up" x="284" y="338.66666666666663" width="34" height="83.33333333333334"/>
+  <text class="xn-val" x="243" y="341">36/48</text>
+  <text class="xn-val xn-val-after" x="301" y="332.66666666666663">40/48</text>
+  <text class="xn-lab" x="243" y="438">527 tok</text>
+  <text class="xn-lab" x="301" y="438">800 tok</text>
+  <g class="xn-stamp" transform="translate(272 463) rotate(-4)"><rect x="-44" y="-12" width="88" height="22" rx="3"/><text y="4">NEXT</text></g>
+</g>
+<g class="xn-card xn-no" style="--d:540ms">
+  <rect class="xn-paper" x="368" y="244" width="172" height="230" rx="8"/>
+  <rect x="368" y="244" width="172" height="230" rx="8" fill="url(#xn-grid)"/>
+  <text class="xn-num" x="380" y="266">#7</text>
+  <text class="xn-title" x="380" y="286">8B: skip the draft</text>
+  <text class="xn-metric" x="380" y="304">diagrams that render</text>
+  <line class="xn-axis" x1="390" x2="518" y1="422" y2="422"/>
+  <rect class="xn-bar xn-before" x="408" y="334" width="34" height="88"/>
+  <rect class="xn-bar xn-after xn-down" x="466" y="349" width="34" height="73"/>
+  <text class="xn-val" x="425" y="328">88%</text>
+  <text class="xn-val xn-val-after" x="483" y="343">73%</text>
+  <text class="xn-lab" x="425" y="438">thinking</text>
+  <text class="xn-lab" x="483" y="438">cut</text>
+  <g class="xn-stamp" transform="translate(454 463) rotate(-4)"><rect x="-44" y="-12" width="88" height="22" rx="3"/><text y="4">REJECTED</text></g>
+</g>
+<g class="xn-card xn-no" style="--d:630ms">
+  <rect class="xn-paper" x="550" y="244" width="172" height="230" rx="8"/>
+  <rect x="550" y="244" width="172" height="230" rx="8" fill="url(#xn-grid)"/>
+  <text class="xn-num" x="562" y="266">#8</text>
+  <text class="xn-title" x="562" y="286">LFM2.5 at 8K</text>
+  <text class="xn-metric" x="562" y="304">turns with any output</text>
+  <line class="xn-axis" x1="572" x2="700" y1="422" y2="422"/>
+  <rect class="xn-bar xn-before" x="590" y="322" width="34" height="100"/>
+  <rect class="xn-bar xn-after xn-down" x="648" y="421.5" width="34" height="0.5"/>
+  <text class="xn-val" x="607" y="316">11/11</text>
+  <text class="xn-val xn-val-after" x="665" y="415.5">0/11</text>
+  <text class="xn-lab" x="607" y="438">4096</text>
+  <text class="xn-lab" x="665" y="438">8192</text>
+  <g class="xn-stamp" transform="translate(636 463) rotate(-4)"><rect x="-44" y="-12" width="88" height="22" rx="3"/><text y="4">REJECTED</text></g>
+</g>
+</svg>
+    </div>
+    <div class="xn-legend" aria-hidden="true">
+      <span><i style="background: color-mix(in srgb, var(--fg) 22%, transparent)"></i>baseline</span>
+      <span><i style="background: var(--accent-3)"></i>experiment, better</span>
+      <span><i style="background: var(--accent-2)"></i>experiment, worse or flat</span>
+    </div>
+    <figcaption>Every bar is on the same 0 to 1 scale. Six of eight experiments were rejected on the number shown. The 800-token excerpt budget is the one I still plan to build.</figcaption>
+  </figure>
+
+  <h2>EmbeddingGemma 2: better at Dutch, worse at everything else I measured</h2>
+
+  <p>In October, Google's EmbeddingGemma 2 looked like the natural successor to MiniLM. It is multilingual, and a fair amount of my own writing is in Dutch. I ran it through the same harness as MiniLM on 24 October.</p>
+
+  <p>It did win where I hoped it would. Dutch and multilingual queries gained 0.10 MRR, the slices holdout gained 0.07, and cross-lingual queries (asking in English about a Dutch note) went from 0 to 0.13. Then it lost the sets that matter most. On the harder set, which is full of paraphrases and indirect questions, MRR dropped from 0.703 to somewhere between 0.571 and 0.590 depending on the configuration. Person-topic questions dropped 0.02.</p>
+
+  <p>Abstention was the quieter problem. Atlas only attaches excerpts to the prompt when retrieval is confident, and that confidence gate is calibrated on cosine similarity. With EmbeddingGemma, unrelated pairs scored around 0.6, so I had to add a <code>similarityFloor</code> to rescale scores before the gate made any sense. Even with the best gate I could tune, it let 83% of the turns that should abstain through, compared with 75% for MiniLM.</p>
+
+  <p>And then there was the phone. EmbeddingGemma 2 needs iOS 18, and Atlas supports iOS 17. The tokenizer alone took about 216 MB of dirty memory and 6.5 seconds to load on every launch. The download would have been about 558 MB (a 271 MB model, a 256 MB token table and a 31 MB tokenizer), and the model ran about three times slower than MiniLM on CPU. On iOS 27 it also hit the Neural Engine compile that never finishes, the same problem I described in the <a href="atlas-ears-and-eyes.html">voice and vision post</a>.</p>
+
+  <p>I kept the <code>similarityFloor</code> seam, since any future embedder with a high cosine baseline will need it, and deleted the rest.</p>
+
+  <h2>The graph that answered nothing</h2>
+
+  <p>The July version of Atlas had a knowledge graph: entities extracted from every document, plus typed edges such as <code>works_at</code> or <code>met_with</code> that a language model wrote during background enrichment. In November I finally measured what it was worth, and the write-up in <code>docs/GRAPH_VALUE.md</code> is the most humbling document in the repo.</p>
+
+  <p>I started with demand and supply. Of 297 real chat turns (161 unique questions), about 5% were relational, the kind of question a graph is supposed to answer, such as "who does X work with". On the supply side, only about 0.5% of roughly 17,700 sentences in my index contained a relational cue at all. The live graph showed the result: after 117 completed edge-extraction jobs, with 775 more still pending, it held exactly one LLM-written edge, and that edge was junk. Gemma E2B scored 0.75 precision on my synthetic edge benchmark and about 7% on real documents.</p>
+
+  <p>Maybe the extraction model was just too weak, so I ran an oracle arm: I wrote 30 correct typed edges by hand and gave them to the model directly. The answers contained 30 of 49 expected facts with the oracle edges, and 30 of 49 without any edges. Graded per question out of 23, the arms scored 14 (no graph), 16 (production), 15 (oracle), 14 (realistic) and 14 (noisy), a spread that is run-to-run noise. The noisy arm was worse in a way the scores don't show, because the model repeated the wrong edges back to me as "your notes state…".</p>
+
+  <p>The reason became clear once I read the failures. The facts people ask about are attached to events: a meeting, an email thread, a date. A static edge saying two people are colleagues carries none of that, and the document that does carry it was already being retrieved. An earlier experiment had shown the same thing from the other side. In September I added 102 <code>met_with</code> and <code>colleague_of</code> edges to a work fixture, which more than doubled the typed-edge share from 0.10 to 0.22, and no question category moved at all, because the answer documents were already within two hops. I deleted that code too. Fusing the graph as a third retrieval leg with reciprocal rank fusion was worse still: golden MRR fell from 0.896 to 0.849 and harder-set MRR from 0.647 to 0.373.</p>
+
+  <p>The real-index ablation turned up the actual damage. Turning graph injection off changed the top five excerpts on 26 of 165 questions. On 21 of those the graph had been adding noise, 3 were neutral, and 2 were accidental improvements that only happened because the extra context nudged the confidence gate. The worst case involved ING, the Dutch bank. On eight questions about ING, a contact card for someone called Ingmar took the fifth slot, because entity lookup was a SQL substring match.</p>
+
+  <figure class="xn-fig" id="xn-ing">
+    <div class="xn-scroll">
+      <svg viewBox="0 0 680 290" role="img" aria-labelledby="xn-ing-t" class="xg-sub">
+        <title id="xn-ing-t">Entity lookup for the probe ING. A substring match finds every name containing the letters ing, including the contact Ingmar, whose card then takes slot 5 of the excerpts. A token-exact match finds only the organization ING.</title>
+        <rect class="xg-panel" x="10" y="8" width="320" height="270" rx="8"/>
+        <text class="xg-h" x="26" y="30">ENTITY LOOKUP FOR “ING”</text>
+        <text class="xg-code xg-note-sub" x="26" y="50"><tspan class="xg-sql">WHERE</tspan> name <tspan class="xg-sql">LIKE</tspan> '%ing%'</text>
+        <text class="xg-code xg-note-exa" x="26" y="50"><tspan class="xg-sql">WHERE</tspan> token = 'ing'</text>
+<g class="xg-row xg-exact" style="--d:0ms">
+  <rect class="xg-rowbg" x="20" y="50" width="300" height="28" rx="5"/>
+  <text class="xg-name" x="34" y="70"><tspan class="xg-hit">ING</tspan></text>
+  <text class="xg-type" x="306" y="70">org</text>
+</g>
+<g class="xg-row" style="--d:160ms">
+  <rect class="xg-rowbg" x="20" y="84" width="300" height="28" rx="5"/>
+  <text class="xg-name" x="34" y="104"><tspan class="xg-hit">Ing</tspan>mar</text>
+  <text class="xg-type" x="306" y="104">contact</text>
+</g>
+<g class="xg-row" style="--d:320ms">
+  <rect class="xg-rowbg" x="20" y="118" width="300" height="28" rx="5"/>
+  <text class="xg-name" x="34" y="138">Henn<tspan class="xg-hit">ing</tspan> Vos</text>
+  <text class="xg-type" x="306" y="138">contact</text>
+</g>
+<g class="xg-row" style="--d:480ms">
+  <rect class="xg-rowbg" x="20" y="152" width="300" height="28" rx="5"/>
+  <text class="xg-name" x="34" y="172">Lotte K<tspan class="xg-hit">ing</tspan>ma</text>
+  <text class="xg-type" x="306" y="172">contact</text>
+</g>
+<g class="xg-row" style="--d:640ms">
+  <rect class="xg-rowbg" x="20" y="186" width="300" height="28" rx="5"/>
+  <text class="xg-name" x="34" y="206">Stirl<tspan class="xg-hit">ing</tspan> Ross</text>
+  <text class="xg-type" x="306" y="206">contact</text>
+</g>
+<g class="xg-row" style="--d:800ms">
+  <rect class="xg-rowbg" x="20" y="220" width="300" height="28" rx="5"/>
+  <text class="xg-name" x="34" y="240">onboard<tspan class="xg-hit">ing</tspan></text>
+  <text class="xg-type" x="306" y="240">topic</text>
+</g>
+
+        <text class="xg-note xg-note-sub" x="26" y="268">34 entities matched in the real index</text>
+        <text class="xg-note xg-note-exa" x="26" y="268">1 entity matched</text>
+
+        <path class="xg-arrow" d="M336 150 H 356"/>
+        <path class="xg-head" d="M356 145 L364 150 L356 155 Z"/>
+
+        <rect class="xg-panel" x="370" y="8" width="300" height="270" rx="8"/>
+        <text class="xg-h" x="386" y="30">TOP 5 EXCERPTS IN THE PROMPT</text>
+        <g class="xg-slot"><rect x="384" y="46" width="272" height="34" rx="5"/><text class="xg-rank" x="396" y="67">1</text><text x="414" y="67">ING · app update notice</text></g>
+        <g class="xg-slot"><rect x="384" y="86" width="272" height="34" rx="5"/><text class="xg-rank" x="396" y="107">2</text><text x="414" y="107">ING · yearly overview</text></g>
+        <g class="xg-slot"><rect x="384" y="126" width="272" height="34" rx="5"/><text class="xg-rank" x="396" y="147">3</text><text x="414" y="147">Note · banking to-dos</text></g>
+        <g class="xg-slot"><rect x="384" y="166" width="272" height="34" rx="5"/><text class="xg-rank" x="396" y="187">4</text><text x="414" y="187">ING · new card arrived</text></g>
+        <g class="xg-slot xg-five"><rect x="384" y="206" width="272" height="34" rx="5"/><text class="xg-rank" x="396" y="227">5</text>
+          <text class="xg-alt xg-bad" x="414" y="227">Contact card · Ingmar</text>
+          <text class="xg-alt xg-good" x="414" y="227">ING · terms change</text></g>
+        <text class="xg-note xg-note-sub" x="386" y="268">A contact card displaces a real answer</text>
+        <text class="xg-note xg-note-exa" x="386" y="268">Slot 5 goes back to retrieval</text>
+      </svg>
+    </div>
+    <div class="xg-controls" role="group" aria-label="Match mode">
+      <button type="button" data-mode="sub" aria-pressed="true">Substring (before)</button>
+      <button type="button" data-mode="exa" aria-pressed="false">Token-exact (1.6.1)</button>
+    </div>
+    <figcaption>The ING bug. The bug is real; the names and the excerpt titles are made up. The graph also added 9 ms per query (40 ms against 31 ms).</figcaption>
+  </figure>
+
+  <p>What shipped in 1.6.1 on 3 November was a much smaller graph. The LLM edge-extraction job is off by default (one environment variable turns it back on for experiments). Entity search matches whole tokens. My own contact card no longer gets injected into every turn about me. A first name that matches exactly one contact expands to that contact, which put the right card in the top five for 10 of 13 test contacts (with full names it was 12 of 13). Count questions about people get exact figures from a deterministic path, and phrases like "last week" or "vorige maand" become a hard time filter. None of that needed a model.</p>
+
+  <h2>PageIndex, and the leak it pointed at</h2>
+
+  <p>PageIndex is a retrieval approach for long documents: build a table of contents with a language model, then let the model navigate that tree instead of searching chunks. Long notes were a real weak spot for Atlas, so in November I tried it as Bet 6.</p>
+
+  <p>The original couldn't run in Atlas at all. It calls a language model while indexing and while searching, which breaks two of my invariants (interactive search is LLM-free, and there are exactly three places that call the model), and it's a Python service aimed at long PDFs. My index has zero PDFs, and only 59 of its 4,403 documents are long and structured. So I tested the idea in an LLM-free form: split long notes at their headings into section chunks, or expand a hit with its neighbouring text.</p>
+
+  <p>To avoid grading my own homework, I wrote a blind fixture first: six long notes and 48 questions whose answers sit deep inside them, written before I looked at how any arm behaved. Counting answered questions out of 48, the shipped retrieval got 36. Section chunks got 37, which looks like a win until you check the other sets. They cut harder-set paraphrase recall@1 from 0.88 to 0.62 and Dutch recall@1 by 0.40, because a short section has much less text for an embedding to match against. Expanding hits to 1,500 characters scored 35, and adding sibling sections scored 29.</p>
+
+  <p>The interesting number was elsewhere. For 42 of the 48 questions, the excerpt containing the answer was already in the top five. Only 36 reached the model, because the prompt's excerpt budget of about 527 tokens fits three excerpts. Retrieval was fine and the prompt was cutting it off. Raising the budget to 800 tokens fits five excerpts and answered 40 of 48 (on the holdout, 18 went to 21), at a cost of about 280 extra tokens per turn. On a 4,096-token window that's too much, since the system prompt and tool declarations already take most of it. The plan is a budget that follows the window: five excerpts at 6,144 tokens and up, three on the tightest phones. That one is in the queue and isn't built yet.</p>
+
+  <h2>Smaller no's</h2>
+
+  <p><strong>Rescaling BM25.</strong> SQLite's FTS5 returns BM25 as a negative rank, and Atlas maps it into 0 to 1 with <code>|r| / (1 + |r|)</code>. That saturates: ranks from −9 to −18 all land between 0.88 and 0.95, so keyword strength barely separates good hits from great ones. A better-spread rescale lifted golden MRR from 0.917 to 0.937 and fixed four rank-1 failures on my real index. It also cut harder-set paraphrase recall@1 from 0.75 to 0.375 and broke the recency gate. A title-coverage boost broke the calendar questions. Both went.</p>
+
+  <p><strong>Cutting the 8B model's diagram draft.</strong> When LFM's 8B model draws a mermaid diagram, it drafts the whole thing inside its thinking block and then writes it out again. That looks wasteful, so I tried closing the thinking at the first code fence, and skipping thinking entirely. With full thinking it spent 645 tokens and 11.3 seconds, and 43 of 49 diagrams rendered (88%). Closing at the fence saved 3 seconds and dropped rendering to 38 of 52 (73%). Skipping thinking saved 5 seconds and rendered 15 of 20 (75%). The draft is where the model gets the syntax right. The only lossless speed-up I can see is prompt-lookup decoding, which copies the draft instead of regenerating it.</p>
+
+  <p><strong>Fact-check noise.</strong> The meeting agent's fact checker (covered in the <a href="meeting-agent-decision-model.html">meeting agent post</a>) got a round of tweaks. Only the LLM-free gate rules helped, lifting precision and recall from 86/67 to 94/76 at a 1,536-token budget. Along the way I learned that the 24B checker, sampling at temperature 0.3, gave 0 identical replies out of 77 across two dev runs, with 11 outcomes flipping. A change smaller than that noise can't be measured, so the checker now decodes greedily (baseline 89/69). Using the d1 decision model alone as the verdict scored 79/52, which was not enough.</p>
+
+  <p><strong>TurboQuant.</strong> I wanted compressed KV caches for long MLX contexts. TurboQuant only exists on the upstream main branch and needs Swift 6.3, while my toolchain is on 6.1.2. I shipped an 8-bit and 4-bit KV-cache option on the released API instead, off by default, because LFM2 is a hybrid architecture where only 8 of 30 layers keep a KV cache (about 48 MiB at 8,192 tokens).</p>
+
+  <p><strong>LFM2.5 at 8K.</strong> My Mac has plenty of memory, so I raised LFM2.5's window from 4,096 to 8,192 tokens. All 11 test turns produced zero characters of output. The model was never trained past 4,096, and the <a href="atlas-small-models.html">small models post</a> tells that story in full.</p>
+
+  <h2>What I keep relearning</h2>
+
+  <p>First, a synthetic set agrees with my assumptions. Almost every rejected arm in this post won on the golden set, which I wrote, and lost on the harder set or the holdout, which were built to disagree with me. If I only had the golden set, I would have shipped the BM25 rescale, the length and title fusion terms and the section index, and each of them would have made real questions worse.</p>
+
+  <p>Second, the cheap version of a measurement is usually enough to kill an idea. The graph audit started with a count of how many questions were relational and how many sentences contained a relation. They predicted the oracle result before I ran it.</p>
+
+  <p>Third, the most useful finding is often next to the experiment. The PageIndex bet found the excerpt budget. The graph audit found a substring match. The fact-check round found sampling noise big enough to hide every change I was testing.</p>
+
+  <!-- IMAGE SLOT: Terminal screenshot of `AtlasCLI batch --compare` on synthetic golden-set queries, showing two rankings side by side under different bm25/semantic weights (docs/blog/images/atlas-cli-compare.png) -->
+
+  <p>Atlas is a smaller app than the one I would have shipped in August, and each part that remains has a number behind it.</p>
+
+  <div class="playground-callout"><p class="pc-label">Try Atlas</p><p><strong>Atlas: Private On-Device AI</strong> runs everything in this post on your own device: <a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=iphone">download for iPhone &amp; iPad</a> or <a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=mac">download for Mac</a>.</p></div>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2">all-MiniLM-L6-v2</a>: The sentence-embedding model Atlas ships with.</li>
+    <li><a href="https://ai.google.dev/gemma/docs/embeddinggemma">EmbeddingGemma</a>: Google's on-device embedding model family.</li>
+    <li><a href="https://github.com/VectifyAI/PageIndex">PageIndex</a>: Reasoning-based retrieval over a document's table of contents.</li>
+    <li><a href="https://sqlite.org/fts5.html">SQLite FTS5</a>: The full-text engine behind Atlas's keyword leg. Its <code>bm25()</code> function returns negative ranks, which is where the saturating rescale in this post comes from.</li>
+    <li><a href="https://en.wikipedia.org/wiki/Mean_reciprocal_rank">Mean reciprocal rank</a>: The ranking metric used throughout the golden, harder and holdout sets.</li>
+    <li><a href="https://en.wikipedia.org/wiki/Training,_validation,_and_test_data_sets">Training, validation and test sets</a>: The dev/holdout split in this post is the same idea applied to ranking changes: tune on one set and decide on another you never look at while tuning.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script>
+(() => {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Scorecard: bars grow in once the figure scrolls into view.
+  const score = document.querySelector('#xn-score svg');
+  if (score && !reduce && 'IntersectionObserver' in window) {
+    score.classList.add('xn-anim');
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) { score.classList.add('xn-in'); io.disconnect(); }
+      });
+    }, { threshold: 0.3 });
+    io.observe(score);
+  }
+
+  // ING figure: toggle substring vs token-exact; auto-cycle while visible until the reader clicks.
+  const fig = document.getElementById('xn-ing');
+  if (!fig) return;
+  const svg = fig.querySelector('svg');
+  const buttons = fig.querySelectorAll('.xg-controls button');
+  let mode = 'sub';
+  let timer = null;
+  const set = (m) => {
+    mode = m;
+    svg.classList.toggle('xg-sub', m === 'sub');
+    svg.classList.toggle('xg-exa', m === 'exa');
+    buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+  };
+  const stop = () => { if (timer) { clearInterval(timer); timer = null; } };
+  buttons.forEach((b) => b.addEventListener('click', () => { stop(); set(b.dataset.mode); }));
+  if (reduce || !('IntersectionObserver' in window)) return;
+  let touched = false;
+  buttons.forEach((b) => b.addEventListener('click', () => { touched = true; }));
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting && !touched && !timer) {
+        timer = setInterval(() => set(mode === 'sub' ? 'exa' : 'sub'), 3200);
+      } else if (!e.isIntersecting) {
+        stop();
+      }
+    });
+  }, { threshold: 0.4 });
+  io.observe(fig);
+})();
+</script>
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

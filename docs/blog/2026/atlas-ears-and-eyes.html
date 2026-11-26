@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ears and Eyes on a Phone: Voice and Vision in Atlas — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="How Atlas learned to transcribe, tell speakers apart, read photos and watch through the camera, all on the device, and the bugs that only showed up as an app silently vanishing." />
+  <meta property="og:title" content="Ears and Eyes on a Phone: Voice and Vision in Atlas" />
+  <meta property="og:description" content="Live transcription, speaker labels, photo questions and a camera that watches for you, on a phone. Most of the hard bugs left no crash log at all." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/atlas-ears-and-eyes.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/atlas-ears-and-eyes.html" />
+  <meta name="theme-color" content="#0c0b0a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f3eee4" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+  <link rel="stylesheet" href="../../../css/posts/atlas-ears-and-eyes.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Ears and Eyes on a Phone: Voice and Vision in Atlas</h1>
+  <p><em>November 2026 · 13 min read</em></p>
+
+  <p>In July, Atlas could read. It searched your notes, calendar and documents and answered from them with a small model on the phone. Between August and November it learned to listen and to see: a Transcribe tab that writes down a meeting as people talk and labels who said what, a chat that answers questions about a photo, and a camera mode called Look that watches a spot for you. All of it runs on the device.</p>
+
+  <p>The features were the easy part. A phone running two neural networks at once fails in ways Swift never gets to see, and several bugs in this post left no crash report, error or log line behind. The app was simply gone. So this is the story of those four months told mostly through the bugs, because that's where I learned the most.</p>
+
+  <div class="playground-callout series-box">
+    <p class="pc-label">Atlas series</p>
+    <ol>
+      <li><a href="atlas-context-engineering.html">Fitting a Second Brain Into 8,192 Tokens</a> (the July original)</li>
+      <li><a href="atlas-small-models.html">Taming Small Models That Don't Speak Your Tool Protocol</a></li>
+      <li><a href="atlas-retrieve-then-generate.html">Retrieve, Then Generate: Closing the Speed Gap on a Phone</a></li>
+      <li><a href="atlas-network-boundary.html">Letting the Network In Without Letting the Data Out</a></li>
+      <li><strong>Ears and Eyes on a Phone: Voice and Vision in Atlas</strong></li>
+      <li><a href="atlas-experiments-not-shipped.html">The Experiments I Didn't Ship</a></li>
+      <li><a href="atlas-july-to-november.html">Atlas, July to November</a></li>
+    </ol>
+  </div>
+
+  <h2>First, a transcript you record and then read</h2>
+
+  <p>The first version, in early August, was deliberately boring. You tapped record, Atlas wrote a WAV file to a temporary folder, and when you stopped, <a href="https://github.com/argmaxinc/WhisperKit">WhisperKit</a> transcribed it with Whisper running on Core ML. The transcript became an ordinary document in the knowledge base, so "what did we decide about the launch?" could find it later in chat like any note.</p>
+
+  <p>A phone can't comfortably hold a chat model and a speech model at the same time, so the chat model is suspended for the length of a transcription job and warmed again afterwards. Hold on to that idea, because in September it turned out to be a lie.</p>
+
+  <p>The first device bug set the tone for the autumn. The Transcribe tab said "not available in this build" on real iPhones and worked on my Mac. The deepest of its three causes was in model loading: when WhisperKit can't find <code>tokenizer.json</code> locally, it quietly falls back to fetching it from Hugging Face. I had pointed it at the model folder but never at a tokenizer folder, so an "offline" load was never offline. On a Mac with a network you'd never notice.</p>
+
+  <h2>Going live: from a spike to Parakeet</h2>
+
+  <p>On 1 September I started a throwaway spike: swap Whisper for NVIDIA's Parakeet running through <a href="https://github.com/FluidInference/FluidAudio">FluidAudio</a>, with an end-of-utterance streaming model and real-time speaker diarization. Whisper is a batch model; to fake streaming it keeps re-decoding a sliding window of audio and revising what it already said. Parakeet has a real streaming decoder, so text appears as you speak and mostly stays put.</p>
+
+  <p>A week later the separate "Live" tab was gone and Transcribe showed text while you talked. It defaulted to Parakeet TDT v3, which covers 25 languages and in my release notes measured roughly 20 times faster than the model the old tab used. Later in September Nemotron Multilingual became the default (low latency, about 40 languages) and NVIDIA's Nemotron 3 speaker model took over diarization, following up to eight speakers.</p>
+
+  <!-- IMAGE SLOT: Transcribe tab mid-session, live transcript with coloured speaker labels and the running clock (docs/blog/images/atlas-transcribe-live.png) -->
+
+  <p>Two bugs from that first week quietly <em>deleted speech</em>, and both were caught in review.</p>
+
+  <p><strong>The repetition guard that ate New York.</strong> Parakeet's end-of-utterance model sometimes emits the tail of a phrase twice when it re-decodes an overlap, so I wrote a <code>RepetitionGuard</code> that collapses repeats. Its first rule collapsed any adjacent two-word repeat. "New York New York is a great city" lost half a proper noun, and "did you say that you did you say that you did" lost about half the sentence. The collapsed text is what gets indexed, so that deletion is unrecoverable. The fix sets a five-word floor for a bare double repeat: four still swallows "we have to go we have to go now", and six misses the shortest real artifact the guard must catch, which is itself five words. A structural signal decides the rest. A decoder artifact repeats the tail exactly twice and stops, while periodic speech keeps going, so a double repeat where the phrase keeps going in the words that follow is left alone.</p>
+
+  <p><strong>Samples compared to frames.</strong> A <code>SilenceSegmenter</code> decides when a pause is long enough to flush an utterance. It compared a counter of raw audio samples (about 48,000 a second) with the diarizer's frame index (one frame per 0.1 seconds). Those numbers are about 4,800 apart in scale, so the "silence" check fired on nearly every audio buffer and tore the transcription engines down and restarted them at buffer cadence. Everything now works in seconds with a 0.75-second threshold, and a test pins zero flushes across five seconds of speech (the old code flushed 50 times) and exactly one on a two-second gap.</p>
+
+  <h2>The transcript that kept rewriting itself</h2>
+
+  <p>In mid-September someone told me Whisper's live transcript "flickered and rewrote itself constantly". My first assumption was that Whisper's sliding window was simply like that, but the bug turned out to be mine.</p>
+
+  <p>WhisperKit's streaming transcriber exposes two plausible sources for the text it hasn't confirmed yet. <code>unconfirmedText</code> is an array that <em>accumulates</em>: each time a decode comes back shorter than the last, the whole previous text gets appended to it. <code>currentText</code> is rebuilt token by token. Then the transcriber resets both to empty and re-decodes the window. I was displaying <code>unconfirmedText</code> joined with <code>currentText</code>, so the line grew, reshuffled, duplicated itself and snapped back on every callback. The right source was <code>unconfirmedSegments</code>, which is replaced wholesale on every decode pass.</p>
+
+  <p>Two smaller things were hiding in the same spot. WhisperKit's state is a struct whose <code>didSet</code> fires a callback on <em>every</em> field change, including the audio energy level, which updates once per buffer, roughly 50 to 100 times a second. And WhisperKit writes the literal string "Waiting for speech..." into <code>currentText</code>, which is UI chrome that must never land in a transcript. Here's the difference, slowed down:</p>
+
+  <figure class="ee-fig ee-card" id="eeFlicker">
+    <div class="ee-scroll">
+      <svg viewBox="0 0 720 300" role="img" aria-labelledby="eeFlickerTitle eeFlickerDesc">
+        <title id="eeFlickerTitle">Whisper live transcript: accumulating source versus wholesale segments</title>
+        <desc id="eeFlickerDesc">Two panels play the same audio. On the left, the displayed text built from unconfirmedText plus currentText grows, duplicates and resets, and a callback counter climbs quickly. On the right, text built from unconfirmedSegments grows steadily and only updates once per decode pass.</desc>
+        <rect class="ee-flash" id="eeFlash" x="10" y="10" width="340" height="280" rx="12"/>
+        <rect class="ee-panel ee-panel-bad" x="10" y="10" width="340" height="280" rx="12"/>
+        <rect class="ee-panel ee-panel-good" x="370" y="10" width="340" height="280" rx="12"/>
+        <text class="ee-h" x="28" y="40">Before</text>
+        <text class="ee-sub" x="28" y="60">unconfirmedText + [currentText]</text>
+        <text class="ee-h" x="388" y="40">After</text>
+        <text class="ee-sub" x="388" y="60">unconfirmedSegments</text>
+        <text class="ee-txt" id="eeBad" x="28" y="100"></text>
+        <text class="ee-txt" id="eeGood" x="388" y="100"></text>
+        <text class="ee-cnt" id="eeBadCnt" x="28" y="250">0</text>
+        <text class="ee-cnt-lbl" x="28" y="272">UI callbacks (every state field)</text>
+        <text class="ee-cnt" id="eeGoodCnt" x="388" y="250">0</text>
+        <text class="ee-cnt-lbl" x="388" y="272">UI updates (once per decode pass)</text>
+        <text class="ee-meter" id="eeBadRw" x="200" y="250">rewrites: 0</text>
+        <text class="ee-meter" id="eeGoodRw" x="560" y="250">rewrites: 0</text>
+      </svg>
+    </div>
+    <div class="ee-controls">
+      <button type="button" id="eeFlickerReplay">Replay</button>
+      <span>Same audio, same decodes. Only the source of the in-flight text differs.</span>
+    </div>
+    <figcaption>The accumulating array duplicates text and resets on each re-decode; wholesale segments only ever replace themselves. Timing is slowed down for reading.</figcaption>
+  </figure>
+
+  <p>The fix is a small Foundation-only helper with unit tests in the app's test bundle. It's pinned by tests, but I haven't yet watched it against a live Whisper model on a phone.</p>
+
+  <h2>The crash that wasn't a crash</h2>
+
+  <p>The worst bug of the autumn looked like this: on a 6 GB iPhone 14 Pro, starting a transcription while a chat model was loaded made Atlas vanish. No crash report in Xcode, no Swift error, nothing in my logs. The evidence turned up in a different place, the device's <code>JetsamEvent</code> files. iOS had killed the process for using too much memory, once at its <code>per-process-limit</code> of 3,072 MB and once at a <code>highwater</code> of 3,080 MB. A jetsam kill writes no normal crash report and nothing in the process can catch it.</p>
+
+  <p>The humbling part is that the guard was already there: <code>LiveSession.start()</code> always called <code>suspendLLM()</code> first, and the speech model's RAM floor assumed the chat model was gone. <code>suspendLLM()</code> swapped in a placeholder and dropped its reference to the chat model, but the MLX backend is a Swift actor without a <code>deinit</code> (an actor's deinit can't <code>await</code>), and MLX's buffer cache is a process-global pool anyway. Dropping the reference reclaimed nothing.</p>
+
+  <figure class="ee-fig ee-card" id="eeRam">
+    <div class="ee-scroll">
+      <svg viewBox="0 0 720 380" role="img" aria-labelledby="eeRamTitle eeRamDesc">
+        <title id="eeRamTitle">Memory on a 6 GB iPhone during a transcription start</title>
+        <desc id="eeRamDesc">Two stacked bars against a dashed 3,072 MB per-process limit. Before: suspendLLM drops a reference but the 1,580 MB chat model stays resident; adding the 632 MB speech model and at least 860 MB of everything else reaches the limit and iOS kills the app. After: an explicit unload clears the MLX cache, the chat model block leaves, and the speech model plus the rest stays far below the limit.</desc>
+        <!-- axis: y = 340 is 0 MB, scale 0.09 px per MB (3,500 MB = 315 px) -->
+        <line class="ee-axis" x1="90" y1="340" x2="690" y2="340"/>
+        <line class="ee-axis" x1="90" y1="25" x2="90" y2="340"/>
+        <text class="ee-tick" x="82" y="344" text-anchor="end">0</text>
+        <text class="ee-tick" x="82" y="254" text-anchor="end">1,000</text>
+        <text class="ee-tick" x="82" y="164" text-anchor="end">2,000</text>
+        <text class="ee-tick" x="82" y="74" text-anchor="end">3,000</text>
+        <text class="ee-tick" x="20" y="30">MB</text>
+        <rect class="ee-kill" id="eeKill" x="150" y="40" width="220" height="300" rx="8"/>
+        <line class="ee-limit" x1="90" y1="63.5" x2="690" y2="63.5"/>
+        <text class="ee-limit-lbl" x="686" y="56" text-anchor="end">per-process limit, 3,072 MB</text>
+
+        <!-- Before column, x 190..330 -->
+        <g class="ee-seg ee-seg-chat" id="eeBChat">
+          <rect x="190" y="198" width="140" height="142" rx="4"/>
+          <text x="260" y="266">chat model (MLX)</text>
+          <text class="ee-seg-mb" x="260" y="282">1,580 MB</text>
+        </g>
+        <g class="ee-seg ee-seg-asr" id="eeBAsr">
+          <rect x="190" y="141" width="140" height="57" rx="4"/>
+          <text x="260" y="166">speech model</text>
+          <text class="ee-seg-mb" x="260" y="182">632 MB</text>
+        </g>
+        <g class="ee-seg ee-seg-rest" id="eeBRest">
+          <rect x="190" y="63.5" width="140" height="77.5" rx="4"/>
+          <text x="260" y="98">everything else</text>
+          <text class="ee-seg-mb" x="260" y="114">≥ 860 MB</text>
+        </g>
+        <text class="ee-step" id="eeBStep" x="260" y="365">suspendLLM() drops the reference</text>
+
+        <!-- After column, x 470..610 -->
+        <g class="ee-seg ee-seg-chat" id="eeAChat">
+          <rect x="470" y="198" width="140" height="142" rx="4"/>
+          <text x="540" y="266">chat model (MLX)</text>
+          <text class="ee-seg-mb" x="540" y="282">1,580 MB</text>
+        </g>
+        <g class="ee-seg ee-seg-asr" id="eeAAsr">
+          <rect x="470" y="283" width="140" height="57" rx="4"/>
+          <text x="540" y="308">speech model</text>
+          <text class="ee-seg-mb" x="540" y="324">632 MB</text>
+        </g>
+        <g class="ee-seg ee-seg-rest" id="eeARest">
+          <rect x="470" y="205.5" width="140" height="77.5" rx="4"/>
+          <text x="540" y="240">everything else</text>
+          <text class="ee-seg-mb" x="540" y="256">≥ 860 MB</text>
+        </g>
+        <text class="ee-step" id="eeAStep" x="540" y="365">unload() + MLX.Memory.clearCache()</text>
+
+        <text class="ee-col" x="260" y="22">Before</text>
+        <text class="ee-col" x="540" y="22">After</text>
+        <text class="ee-verdict ee-verdict-bad" id="eeBVerdict" x="260" y="50">jetsam: app killed, no crash log</text>
+        <text class="ee-verdict ee-verdict-good" id="eeAVerdict" x="540" y="150">fits, with room to spare</text>
+      </svg>
+    </div>
+    <div class="ee-controls">
+      <button type="button" id="eeRamReplay">Replay</button>
+      <span>Figures from the September jetsam record and the fix's own arithmetic.</span>
+    </div>
+    <figcaption>Dropping a reference to an actor that owns a process-global cache frees nothing. Only an explicit unload makes room for the speech model.</figcaption>
+  </figure>
+
+  <p>The fix came in three parts. The first is an explicit <code>unload()</code> seam on every model backend, awaited <em>before</em> the reference is dropped. MLX implements it by dropping its context and conversations and emptying the global pool, while LiteRT keeps a no-op because of its own strict teardown order (a native session destroyed after its engine segfaults). The second removed a probe that loaded a <em>second</em> copy of the Whisper model whenever its weights were already on disk, doubling the peak at the tightest moment. The third replaced the speech model's floor with a co-residency check.</p>
+
+  <p>My first attempt at that check used half of RAM with 600 MB of headroom, and a test showed it still admitted the configuration that died. So I worked backwards from the kill record: the process passed 3,072 MB with 1,580 MB of chat model and 632 MB of speech model resident, so at least 860 MB was unaccounted for, and that figure is a lower bound because jetsam fires the moment the limit is crossed. Hence a 1 GB reserve and a budget of 0.45 times physical memory. A few days later every model load, chat or speech, moved onto one shared <code>DeviceMemoryBudget</code> that either succeeds or refuses with a reason, with <code>os_proc_available_memory()</code> as a last-moment veto. It also produced my favorite testing lesson of the year: a bug made it refuse every model in the manifest and all the refusal tests stayed green, because refusing everything passes every refusal test. A counterweight test now asserts that every manifest model fits on the hardware it claims to support.</p>
+
+  <blockquote class="pullquote">When a guard exists and the symptom persists, check the guard's premise before you add another guard.</blockquote>
+
+  <h2>iOS 27 and the compile that never finished</h2>
+
+  <p>At the end of September, Record on an iPhone running iOS 27 took minutes to start. The answer was in the app's cache folder, which I pulled off the phone with <code>devicectl</code>. Core ML compiles a model for the Neural Engine ahead of time and caches the result as a bundle. Atlas's cache held only bundles named <code>&lt;hash&gt;.tmp.&lt;pid&gt;</code>, compiles that had never been renamed into place, for the Parakeet encoder, the Nemotron 3 diarizer and the MiniLM embedder. Each attempt cost about 100 seconds of the compiler service's CPU, and every Record paid it again.</p>
+
+  <p>A live session is foreground-only, where the GPU is available, so the speech and speaker models now use <code>.cpuAndGPU</code> on iOS. MiniLM embeds in the background, where iOS refuses GPU work, so it runs on the CPU. A sweeper clears the abandoned bundles, which freed up to a couple of gigabytes on affected phones, and <code>ATLAS_LIVE_ANE=1</code> puts the Neural Engine back the day Apple fixes it.</p>
+
+  <p>The same week brought a real crash, a segfault inside Core ML's on-device ahead-of-time compiler, whenever a Nemotron Multilingual session started on iOS 26.4 or later. My theory that it collided with the embedder's compile died when a build with a serializing load gate crashed exactly the same way. The same build ran fine on an iPad on iPadOS 18 and on macOS 27. I can't fix a crash inside the OS from Swift, so Nemotron Multilingual is switched off on iOS 26.4 and later, and those devices use Parakeet Ultra, which makes about a fifth fewer mistakes than TDT v3 across its 25 languages, Dutch included.</p>
+
+  <p>One more iOS-only puzzle: speaker labels worked on the Mac and never appeared on an iPad. Nemotron 3's mel front end does no normalization, and iOS microphone audio arriving through a <code>.measurement</code> session has no system gain, so the speech probabilities never crossed the model's 0.6 onset. A boost-only level normalizer on the diarizer's input (bit-identical on loud audio, and only on that feed, so the transcript audio is untouched) shipped in 1.5.0. The diarizer's errors had also been swallowed by <code>try?</code> and are now logged, so the next time labels go missing I'll have a line to read instead of a theory.</p>
+
+  <p>Two smaller changes did more for the feel than any model swap. Recording now starts at the tap: the microphone opens while the models load and the audio queues until the transcriber catches up, so nothing you say while the screen shows "Listening…" is lost. And names get corrected without a model call. A word close to the name of a meeting attendee on your calendar (matched loosely) or a full name in your contacts (matched strictly) gets replaced, so "Zebia" becomes "Xebia". I haven't tuned those thresholds on real transcripts yet.</p>
+
+  <h2>Eyes: a photo is 256 tokens</h2>
+
+  <p>Vision arrived in September through MLX with LFM2.5-VL 1.6B: attach a photo and the model answers about it on the GPU, through its own code path. Atlas reuses the KV cache by comparing token IDs, and an image contributes embeddings that no token prefix describes. A warm cache could look like it "strictly extends" on IDs while its contents had actually diverged, which would be silent corruption. So a vision turn always prefills cold instead of reusing the warm cache, and it runs without tools.</p>
+
+  <p>The same week I found the worst possible shape of wrong answer. The streaming chat path's default implementation quietly dropped an attached image and forwarded the turn to the text-only path, so a model that couldn't see answered confidently <em>about a photo it never received</em>, and the answer read like a perfectly normal description. Now a turn that carries an image fails with an error on any backend that can't see it.</p>
+
+  <p>At the end of October Liquid's LFM3 family came to the LiteRT runtime: LFM3-VL reads photos, LFM3-Audio listens, and LFM3 Omni does both. The engine needs its vision or audio encoder when it is <em>created</em>, which the manifest now declares per model, or the first photo fails with "Vision executor should not be null". A photo costs a fixed 256 tokens, charged against the turn's budget like everything else. And the smallest exports have a 2,048-token window, so they keep it, run without tools, and reserve 768 tokens for the answer.</p>
+
+  <p>The audio models changed dictation. With a model that hears selected, the chat microphone records up to 30 seconds of 16 kHz mono and the chat model writes down what you said itself, in English or Dutch, with no separate speech model. It does that in a one-off conversation, so the chat's warm KV cache is left intact, and a test pins exactly that. Every other model, and always a cloud model, falls back to Apple's on-device recognizer. In the other direction, Atlas reads answers aloud. An LLM-free <code>SpokenReply</code> turns the Markdown answer into speakable prose, dropping code, tables, diagrams, math and citation markers and reading links as their text, and speaks in the language of the reply.</p>
+
+  <h2>Look: a camera that only asks when something changes</h2>
+
+  <p>The last piece, at the start of November, is Look, a private camera for the assistant with three modes. <strong>Ask</strong> sends the current frame into the chat as a photo turn. <strong>Remember</strong> saves the frame and its description as a visual memory, so "where did I leave my keys?" finds it later. <strong>Observe</strong> watches a spot and reports when something meaningful changes, and its design is the July post's rule one applied to a camera: the model is the last resort.</p>
+
+  <pre class="mermaid">
+flowchart LR
+    CAM["camera&lt;br/&gt;1 frame a second"] --> FP["SceneChangeDetector&lt;br/&gt;fingerprint, no model"]
+    FP -->|"same scene"| DROP["skip"]
+    FP -->|"new scene settles"| GATE{"cool enough?&lt;br/&gt;no chat turn?&lt;br/&gt;under 20 min?"}
+    GATE -->|no| WAIT["pause"]
+    GATE -->|yes| DESC["AgentLoop.describe&lt;br/&gt;one-off, tool-less,&lt;br/&gt;on-device only"]
+    DESC --> CARD["answer card&lt;br/&gt;people = 'a person'"]
+    MIC["optional mic"] --> SEG["UtteranceSegmenter&lt;br/&gt;no model"] --> ASR["LFM3 Omni hears it,&lt;br/&gt;or Apple's recognizer"] --> DESC
+  </pre>
+
+  <p>Observe samples the camera once a second and fingerprints each frame without any model. Only when a new scene has settled does it ask the vision model to describe it in a tool-less one-off conversation. It pauses when the phone gets warm or a chat turn is running, and it stops on its own after 20 minutes. Frames never leave the device, never reach a cloud model even when one is enabled, and people are only ever described as "a person". Visual memories share the trust boundary of health and location data, so they stay out of the knowledge graph and the Mac's MCP server.</p>
+
+  <p>With <em>Ask by voice</em> on, an LLM-free segmenter cuts each spoken question out of the live audio, the answer about the current frame gets read aloud, and the microphone pauses while Atlas answers and speaks, so it never hears itself. <em>Hold to talk</em> keeps the microphone off until you press. There's also an <code>AtlasCLI look &lt;image&gt; "&lt;question&gt;"</code> command that runs the exact same path headlessly, so I can test camera answers on photos from my desk.</p>
+
+  <!-- IMAGE SLOT: Look > Observe on iPhone: camera preview, the big Hold to ask button, two answer cards below (docs/blog/images/atlas-look-observe.png) -->
+
+  <h2>What four months of sensors taught me</h2>
+
+  <p>The text-only Atlas failed loudly, with a wrong answer or a red test. Audio and vision failed silently in places Swift can't observe: a jetsam kill, a compile that never finishes and looks like a slow button, a diarizer that quietly produces no labels. The evidence was always on the device, in a jetsam record or a cache folder, and almost never on my Mac, which can't reproduce a 6 GB phone's memory limit.</p>
+
+  <p>So the working rules changed. Memory constants come from kill records. Every silent <code>try?</code> on a sensor path now logs its first failure. Anything I haven't confirmed on a physical device is written down as unverified in the commit, which is why several fixes above carry that label. And the July rule held up: the scene detector, silence detector, name corrector, spoken-reply formatter and utterance segmenter all run without a model, and the LLM is only called once deterministic code decides there's something worth describing.</p>
+
+  <div class="playground-callout">
+    <p class="pc-label">Try Atlas</p>
+    <p><a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=iphone">Get Atlas for iPhone &amp; iPad</a> or <a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=mac">get Atlas for Mac</a> on the App Store.</p>
+  </div>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://github.com/argmaxinc/WhisperKit">WhisperKit</a>: Argmax's on-device Whisper on Core ML, Atlas's first transcription engine. Its streaming mode re-decodes a sliding window.</li>
+    <li><a href="https://github.com/FluidInference/FluidAudio">FluidAudio</a>: A Swift SDK for on-device speech recognition and diarization on Core ML, which runs Parakeet, Nemotron and the speaker models in Atlas.</li>
+    <li><a href="https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3">NVIDIA Parakeet TDT v3</a>: The 25-language speech model that made live transcription fast enough to stream.</li>
+    <li><a href="https://developer.apple.com/documentation/xcode/identifying-high-memory-use-with-jetsam-event-reports">Identifying high-memory use with jetsam event reports (Apple)</a>: How iOS records the memory kills that leave no crash log.</li>
+    <li><a href="https://developer.apple.com/documentation/os/3191911-os_proc_available_memory">os_proc_available_memory (Apple)</a>: The call Atlas uses as a last-moment veto before committing to a model load.</li>
+    <li><a href="https://github.com/google-ai-edge/LiteRT-LM">LiteRT-LM</a>: Google's on-device LLM runtime, which runs the LFM3 vision and audio bundles once their encoders are declared at engine creation.</li>
+    <li><a href="https://github.com/ml-explore/mlx-swift">MLX Swift</a>: Apple's array framework for Apple silicon, Atlas's GPU runtime, whose process-global buffer cache is why an explicit unload exists.</li>
+    <li><a href="https://www.liquid.ai/">Liquid AI</a>: Makers of the LFM2.5 and LFM3 models, including the VL, Audio and Omni variants.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script>
+(function () {
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var SVGNS = 'http://www.w3.org/2000/svg';
+
+  function setLines(el, str, cls, width) {
+    while (el.firstChild) el.removeChild(el.firstChild);
+    var words = str.split(' '), lines = [], cur = '';
+    words.forEach(function (w) {
+      if ((cur + ' ' + w).trim().length > width) { lines.push(cur.trim()); cur = w; }
+      else { cur = (cur + ' ' + w).trim(); }
+    });
+    if (cur) lines.push(cur);
+    lines.slice(0, 6).forEach(function (line, i) {
+      var t = document.createElementNS(SVGNS, 'tspan');
+      t.setAttribute('x', el.getAttribute('x'));
+      t.setAttribute('dy', i === 0 ? '0' : '22');
+      if (cls) t.setAttribute('class', cls);
+      t.textContent = line;
+      el.appendChild(t);
+    });
+  }
+
+  function onView(el, fn) {
+    if (!('IntersectionObserver' in window)) { fn(); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { io.disconnect(); fn(); } });
+    }, { threshold: 0.35 });
+    io.observe(el);
+  }
+
+  /* Figure 1: Whisper flicker */
+  (function () {
+    var fig = document.getElementById('eeFlicker');
+    if (!fig) return;
+    var bad = document.getElementById('eeBad'), good = document.getElementById('eeGood');
+    var badCnt = document.getElementById('eeBadCnt'), goodCnt = document.getElementById('eeGoodCnt');
+    var badRw = document.getElementById('eeBadRw'), goodRw = document.getElementById('eeGoodRw');
+    var flash = document.getElementById('eeFlash');
+    var W = 30;
+    // One entry per decode pass. "bad" is what unconfirmedText + [currentText] showed.
+    var frames = [
+      { bad: 'Waiting for speech...', good: '' },
+      { bad: 'we should', good: 'we should' },
+      { bad: 'we should move the lunch', good: 'we should move the' },
+      { bad: 'we should move the lunch we should move', good: 'we should move the launch' },
+      { bad: '', good: 'we should move the launch' },
+      { bad: 'we should move the lunch we should move the launch to', good: 'we should move the launch to' },
+      { bad: 'we should move the launch to', good: 'we should move the launch to' },
+      { bad: 'we should move the lunch we should move the launch to Thursday the launch to', good: 'we should move the launch to Thursday' },
+      { bad: 'we should move the launch to Thursday', good: 'we should move the launch to Thursday' }
+    ];
+    var final = frames[frames.length - 1];
+    var timer = null;
+
+    function showFinal() {
+      setLines(bad, final.bad, null, W);
+      setLines(good, final.good, 'ee-txt-ok', W);
+      badCnt.textContent = '~600'; goodCnt.textContent = String(frames.length);
+      badRw.textContent = 'rewrites: 6'; goodRw.textContent = 'rewrites: 0';
+    }
+
+    function play() {
+      if (timer) clearInterval(timer);
+      if (reduce) { showFinal(); return; }
+      var i = 0, callbacks = 0, rwB = 0, prevB = '', prevG = '', ticks = 0;
+      var updates = 0;
+      setLines(bad, '', null, W); setLines(good, '', null, W);
+      timer = setInterval(function () {
+        ticks++;
+        // energy callbacks fire every tick (~75/s in the real app; compressed here)
+        callbacks += 7 + Math.floor(Math.random() * 6);
+        badCnt.textContent = String(callbacks);
+        if (ticks % 14 !== 0) return;
+        if (i >= frames.length) { clearInterval(timer); timer = null; return; }
+        var f = frames[i++];
+        var bShrunk = prevB && f.bad.indexOf(prevB) !== 0;
+        if (bShrunk) {
+          rwB++;
+          flash.classList.add('on');
+          setTimeout(function () { flash.classList.remove('on'); }, 160);
+        }
+        setLines(bad, f.bad, bShrunk ? 'ee-txt-new' : null, W);
+        if (f.good !== prevG) { updates++; }
+        setLines(good, f.good, 'ee-txt-ok', W);
+        goodCnt.textContent = String(i);
+        badRw.textContent = 'rewrites: ' + rwB;
+        goodRw.textContent = 'rewrites: 0';
+        prevB = f.bad; prevG = f.good;
+      }, 60);
+    }
+
+    document.getElementById('eeFlickerReplay').addEventListener('click', play);
+    if (reduce) showFinal(); else onView(fig, play);
+  })();
+
+  /* Figure 2: RAM bars */
+  (function () {
+    var fig = document.getElementById('eeRam');
+    if (!fig) return;
+    var ids = ['eeBChat', 'eeBAsr', 'eeBRest', 'eeAChat', 'eeAAsr', 'eeARest'];
+    var g = {}; ids.forEach(function (id) { g[id] = document.getElementById(id); });
+    var bStep = document.getElementById('eeBStep'), aStep = document.getElementById('eeAStep');
+    var bVer = document.getElementById('eeBVerdict'), aVer = document.getElementById('eeAVerdict');
+    var kill = document.getElementById('eeKill');
+    var timers = [];
+
+    function hide(id, on) { g[id].classList.toggle('ee-hide', on); }
+
+    function finalState() {
+      ids.forEach(function (id) { hide(id, false); });
+      hide('eeAChat', true);
+      g.eeBChat.classList.remove('ee-seg-chat'); g.eeBChat.classList.add('ee-seg-ghost');
+      g.eeBChat.querySelector('text').textContent = 'chat model, still cached';
+      bStep.textContent = 'suspendLLM() drops the reference';
+      aStep.textContent = 'unload() + MLX.Memory.clearCache()';
+      bVer.classList.add('on'); aVer.classList.add('on'); kill.classList.add('on');
+    }
+
+    function at(ms, fn) { timers.push(setTimeout(fn, ms)); }
+
+    function play() {
+      timers.forEach(clearTimeout); timers = [];
+      if (reduce) { finalState(); return; }
+      ids.forEach(function (id) { hide(id, true); });
+      g.eeBChat.classList.add('ee-seg-chat'); g.eeBChat.classList.remove('ee-seg-ghost');
+      g.eeBChat.querySelector('text').textContent = 'chat model (MLX)';
+      bVer.classList.remove('on'); aVer.classList.remove('on'); kill.classList.remove('on');
+      bStep.textContent = 'chat model loaded'; aStep.textContent = 'chat model loaded';
+      at(200, function () { hide('eeBChat', false); hide('eeAChat', false); });
+      at(1300, function () {
+        bStep.textContent = 'suspendLLM() drops the reference';
+        g.eeBChat.classList.remove('ee-seg-chat'); g.eeBChat.classList.add('ee-seg-ghost');
+        g.eeBChat.querySelector('text').textContent = 'chat model, still cached';
+        aStep.textContent = 'unload() + MLX.Memory.clearCache()';
+        hide('eeAChat', true);
+      });
+      at(2600, function () { bStep.textContent = 'speech model loads'; hide('eeBAsr', false); hide('eeAAsr', false); });
+      at(3500, function () { hide('eeBRest', false); hide('eeARest', false); });
+      at(4400, function () {
+        bStep.textContent = 'suspendLLM() drops the reference';
+        aStep.textContent = 'unload() + MLX.Memory.clearCache()';
+        kill.classList.add('on'); bVer.classList.add('on'); aVer.classList.add('on');
+      });
+    }
+
+    document.getElementById('eeRamReplay').addEventListener('click', play);
+    if (reduce) finalState(); else onView(fig, play);
+  })();
+})();
+</script>
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Atlas, July to November — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Four months and 389 commits after my first post about Atlas, the on-device second brain: what changed, what the July post got wrong by now, and a map to the five deep dives." />
+  <meta property="og:title" content="Atlas, July to November" />
+  <meta property="og:description" content="Nine releases later, Atlas runs four kinds of model, reads mail, listens, looks through the camera and checks its own answers. Here is what changed since July, and where each story is told." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/atlas-july-to-november.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/atlas-july-to-november.html" />
+  <meta name="theme-color" content="#0c0b0a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f3eee4" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+  <link rel="stylesheet" href="../../../css/posts/atlas-july-to-november.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Atlas, July to November</h1>
+  <p><em>November 2026 · 10 min read</em></p>
+
+  <p>In July I wrote about <a href="atlas-context-engineering.html">fitting a second brain into 8,192 tokens</a>. Atlas, my on-device AI assistant for iPhone, iPad and Mac, ran one Gemma model, embedded text with Apple's built-in NLEmbedding, made exactly one network request in its whole life, and had 520 tests. I was proud of every one of those facts, and most of them have since changed.</p>
+
+  <p>Between that post and today the repository took 389 commits and shipped nine releases, from 1.4.0 in August to 1.6.0 on the first of November. The app now runs models through four different paths, reads mail, transcribes meetings, answers questions about photos and checks figures during a call. I tried to write that up as one post and it came out far too long, so it became a series. This page is the map: a short tour of what changed, with a pointer to the post that tells each part properly.</p>
+
+  <div class="playground-callout series-box">
+    <p class="pc-label">Atlas series</p>
+    <ol>
+      <li><a href="atlas-context-engineering.html">Fitting a Second Brain Into 8,192 Tokens</a> (the July original)</li>
+      <li><a href="atlas-small-models.html">Taming Small Models That Don't Speak Your Tool Protocol</a></li>
+      <li><a href="atlas-retrieve-then-generate.html">Retrieve, Then Generate: Closing the Speed Gap on a Phone</a></li>
+      <li><a href="atlas-network-boundary.html">Letting the Network In Without Letting the Data Out</a></li>
+      <li><a href="atlas-ears-and-eyes.html">Ears and Eyes on a Phone: Voice and Vision in Atlas</a></li>
+      <li><a href="atlas-experiments-not-shipped.html">The Experiments I Didn't Ship</a></li>
+      <li><strong>Atlas, July to November</strong></li>
+    </ol>
+  </div>
+
+  <h2>Four months on one line</h2>
+
+  <p>The timeline below puts the releases on top and the period each deep dive covers underneath. Several of them overlap, because the work did: the privacy boundary was being redrawn while the voice pipeline was being rebuilt, and the experiments ran in the background the whole time. Hover over or tap a row to see what it covers, and follow it to the post.</p>
+
+  <figure class="hb-fig" id="hbTimeline">
+    <div class="hb-scroll">
+      <svg class="hb-anim" viewBox="0 0 760 332" role="group" aria-labelledby="hb-tl-title hb-tl-desc">
+        <title id="hb-tl-title">Atlas releases and series topics, July to November 2026</title>
+        <desc id="hb-tl-desc">Releases 1.4.0 to 1.4.4 landed between August 9 and 13, 1.4.5 and 1.4.6 on September 23 and 24, 1.5.0 on October 29 and 1.6.0 on November 1. Each row below links to the post covering that period.</desc>
+<line class="hb-grid" x1="170" y1="40" x2="170" y2="312"/>
+<text class="hb-month" x="228.1" y="28">Jul</text>
+<line class="hb-grid" x1="286.3" y1="40" x2="286.3" y2="312"/>
+<text class="hb-month" x="344.4" y="28">Aug</text>
+<line class="hb-grid" x1="402.5" y1="40" x2="402.5" y2="312"/>
+<text class="hb-month" x="458.8" y="28">Sep</text>
+<line class="hb-grid" x1="515" y1="40" x2="515" y2="312"/>
+<text class="hb-month" x="573.1" y="28">Oct</text>
+<line class="hb-grid" x1="631.3" y1="40" x2="631.3" y2="312"/>
+<text class="hb-month" x="687.5" y="28">Nov</text>
+<line class="hb-grid" x1="740" y1="40" x2="740" y2="312"/>
+<text class="hb-lane-label" x="156" y="68">Releases</text>
+<g class="hb-rel" style="--i:0"><line x1="316.3" y1="52" x2="316.3" y2="74"/><circle cx="316.3" cy="63" r="3.5"/><text x="322.3" y="88" class="hb-rel-t">1.4.0</text></g>
+<g class="hb-rel" style="--i:1"><line x1="320" y1="52" x2="320" y2="74"/><circle cx="320" cy="63" r="3.5"/></g>
+<g class="hb-rel" style="--i:2"><line x1="320" y1="52" x2="320" y2="74"/><circle cx="320" cy="63" r="3.5"/></g>
+<g class="hb-rel" style="--i:3"><line x1="327.5" y1="52" x2="327.5" y2="74"/><circle cx="327.5" cy="63" r="3.5"/></g>
+<g class="hb-rel" style="--i:4"><line x1="331.3" y1="52" x2="331.3" y2="74"/><circle cx="331.3" cy="63" r="3.5"/></g>
+<g class="hb-rel" style="--i:5"><line x1="485" y1="52" x2="485" y2="74"/><circle cx="485" cy="63" r="3.5"/></g>
+<g class="hb-rel" style="--i:6"><line x1="488.8" y1="52" x2="488.8" y2="74"/><circle cx="488.8" cy="63" r="3.5"/><text x="494.8" y="88" class="hb-rel-t">1.4.6</text></g>
+<g class="hb-rel" style="--i:7"><line x1="620" y1="52" x2="620" y2="74"/><circle cx="620" cy="63" r="3.5"/><text x="614" y="88" class="hb-rel-t hb-end">1.5.0</text></g>
+<g class="hb-rel" style="--i:8"><line x1="631.3" y1="52" x2="631.3" y2="74"/><circle cx="631.3" cy="63" r="3.5"/><text x="637.3" y="88" class="hb-rel-t">1.6.0</text></g>
+<a class="hb-lane" href="atlas-context-engineering.html" data-desc="Gemma on LiteRT, NLEmbedding, one network request, 520 tests." data-span="Jul 1 to Jul 12" style="--i:0"><rect class="hb-hit" x="0" y="97" width="760" height="30" rx="6"/><text class="hb-lane-label" x="156" y="116">July original</text><circle class="hb-bar hb-dot" cx="211.3" cy="112" r="7"/></a>
+<a class="hb-lane" href="atlas-small-models.html" data-desc="LFM2.5 joins the menu, leaked tool calls get recovered, MLX arrives." data-span="Sep 3 to Sep 13" style="--i:1"><rect class="hb-hit" x="0" y="131" width="760" height="30" rx="6"/><text class="hb-lane-label" x="156" y="150">Small models</text><rect class="hb-bar" x="410" y="139" width="37.5" height="14" rx="7"/></a>
+<a class="hb-lane" href="atlas-retrieve-then-generate.html" data-desc="Pre-retrieval, the gated chat turn, models that stay loaded." data-span="Sep 12 to Sep 26" style="--i:2"><rect class="hb-hit" x="0" y="165" width="760" height="30" rx="6"/><text class="hb-lane-label" x="156" y="184">Retrieve, then generate</text><rect class="hb-bar" x="443.8" y="173" width="52.5" height="14" rx="7"/></a>
+<a class="hb-lane" href="atlas-network-boundary.html" data-desc="Cloud models you key yourself, Outlook mail, the deep review." data-span="Sep 11 to Oct 30" style="--i:3"><rect class="hb-hit" x="0" y="199" width="760" height="30" rx="6"/><text class="hb-lane-label" x="156" y="218">Network boundary</text><rect class="hb-bar" x="440" y="207" width="183.8" height="14" rx="7"/></a>
+<a class="hb-lane" href="atlas-ears-and-eyes.html" data-desc="Live transcription, diarization, LFM3 photos and speech, Look." data-span="Sep 1 to Nov 5" style="--i:4"><rect class="hb-hit" x="0" y="233" width="760" height="30" rx="6"/><text class="hb-lane-label" x="156" y="252">Ears and eyes</text><rect class="hb-bar" x="402.5" y="241" width="243.8" height="14" rx="7"/></a>
+<a class="hb-lane" href="atlas-experiments-not-shipped.html" data-desc="The headless harness, embedders, the graph audit, rejected bets." data-span="Aug 1 to Nov 12" style="--i:5"><rect class="hb-hit" x="0" y="267" width="760" height="30" rx="6"/><text class="hb-lane-label" x="156" y="286">Experiments</text><rect class="hb-bar" x="286.3" y="275" width="386.2" height="14" rx="7"/></a>
+<line class="hb-today" x1="721.3" y1="40" x2="721.3" y2="312"/><text class="hb-today-t" x="717.3" y="324">today</text>
+
+      </svg>
+    </div>
+    <p class="hb-readout" id="hbReadout" aria-live="polite">Nine releases in four months. Pick a row to see what that post covers.</p>
+    <figcaption>Release dates come from the changelog. The bars are the stretches of commit history each post draws on.</figcaption>
+  </figure>
+
+  <h2>What the July post says that is no longer true</h2>
+
+  <p>The July post still describes the parts that held up well. Interactive search never calls the model, deletion still cascades vectors first, and the budget discipline is stricter than ever. A few of its concrete claims have aged, though, and I'd rather correct them here than leave them standing.</p>
+
+  <p><strong>"The model is a Gemma."</strong> Gemma is still there, but it's one of 22 entries in the model manifest today. Most of my attention moved to Liquid AI's LFM family, which turned out to be better at this job on small devices. LFM2.5 arrived in September in 1.2B, 2.6B and 8B sizes, and LFM3 followed in October and November with a 1.7B text model and 2B vision, audio and "omni" variants. Getting those models to behave inside Atlas took a fair amount of wrangling, and that is <a href="atlas-small-models.html">the small-models post</a>.</p>
+
+  <p><strong>"Embeddings come from Apple's NLEmbedding."</strong> In August I benchmarked four on-device embedders on the golden retrieval set. A Core ML conversion of all-MiniLM-L6-v2 won clearly: mean reciprocal rank went from 0.846 to 0.934 and recall at 5 reached 1.0. It now ships inside the app bundle, so search works from the first launch without downloading anything. Later contenders, including EmbeddingGemma, didn't beat it. That story, along with the other benchmarks I lost, is in <a href="atlas-experiments-not-shipped.html">the experiments post</a>.</p>
+
+  <p><strong>"The app's one and only network request downloads the model."</strong> This was the rule I liked most, and I amended it on purpose. Invariant #6 now allows three kinds of traffic: a pinned weight download, a cloud model the user keys and switches on themselves, and the user's own Outlook mailbox fetched over Microsoft Graph, inbound only. All three are off until you turn them on, and the source scan that enforces the rule got stricter in the process. <a href="atlas-network-boundary.html">The network post</a> explains how I let those three in and kept the rest out.</p>
+
+  <p><strong>"8,192 tokens."</strong> The window is still sized from device memory, and 4,096 tokens on a 6 GB iPhone is still the tightest case I design for. On the other end, LFM3 on MLX now sizes its window from the RAM budget and can hold up to 256K tokens on a Mac when you ask for the maximum. The title of the July post is now the middle of the range rather than the ceiling.</p>
+
+  <p><strong>"520 tests in three seconds."</strong> The engine suite alone counted 1,806 tests after the October review, and the repository now has roughly 2,800 functions marked <code>@Test</code> across the engine, app, CLI, MCP and speech targets. It no longer runs in three seconds, and I've stopped quoting a time for it.</p>
+
+  <figure class="hb-fig" id="hbArch">
+    <div class="hb-scroll">
+      <svg class="hb-anim" viewBox="0 0 760 420" role="img" aria-labelledby="hb-ar-title hb-ar-desc">
+        <title id="hb-ar-title">Atlas in July compared with Atlas in November</title>
+        <desc id="hb-ar-desc">In July: notes, PDFs, calendar, contacts and health; FTS5, NLEmbedding and a graph; one LiteRT-LM Gemma runtime; one network request for the model download. In November: the same sources plus mail, photos, speech and camera; a bundled MiniLM embedder and a mail index; LiteRT, MLX and Apple Intelligence runtimes plus an opt-in cloud model and a d1 decision model; network traffic limited to weights, the user's own provider and inbound Outlook mail.</desc>
+      <g class="hb-panel">
+        <rect class="hb-frame" x="10" y="10" width="350" height="400" rx="14"/>
+        <text class="hb-ptitle" x="185" y="40">July · 1.3</text>
+        <text class="hb-row" x="30" y="78">Sources</text>
+        <rect class="hb-box" x="30" y="88" width="310" height="44" rx="8"/>
+        <text class="hb-bt" x="185" y="115">notes · PDFs · calendar · contacts · health</text>
+        <text class="hb-row" x="30" y="162">Index</text>
+        <rect class="hb-box" x="30" y="172" width="310" height="44" rx="8"/>
+        <text class="hb-bt" x="185" y="199">FTS5 + NLEmbedding (512-d) + graph</text>
+        <text class="hb-row" x="30" y="246">Models</text>
+        <rect class="hb-box hb-run" x="30" y="256" width="310" height="44" rx="8"/>
+        <text class="hb-bt" x="185" y="283">LiteRT-LM · Gemma</text>
+        <text class="hb-row" x="30" y="330">Network</text>
+        <rect class="hb-box" x="30" y="340" width="310" height="44" rx="8"/>
+        <text class="hb-bt" x="185" y="367">one request: the model download</text>
+      </g>
+      <g class="hb-panel">
+        <rect class="hb-frame" x="400" y="10" width="350" height="400" rx="14"/>
+        <text class="hb-ptitle" x="575" y="40">November · 1.6</text>
+        <text class="hb-row" x="420" y="78">Sources</text>
+        <rect class="hb-box" x="420" y="88" width="148" height="44" rx="8"/>
+        <text class="hb-bt" x="494" y="108">notes · PDFs · calendar</text>
+        <text class="hb-bt" x="494" y="123">contacts · health</text>
+        <g class="hb-new" style="--i:0"><rect class="hb-box hb-add" x="576" y="88" width="154" height="44" rx="8"/>
+        <text class="hb-bt" x="653" y="108">+ mail · photos</text>
+        <text class="hb-bt" x="653" y="123">+ speech · camera</text></g>
+        <text class="hb-row" x="420" y="162">Index</text>
+        <rect class="hb-box" x="420" y="172" width="310" height="44" rx="8"/>
+        <text class="hb-bt" x="575" y="199">FTS5 + <tspan class="hb-hl">MiniLM, bundled</tspan> + graph + mail index</text>
+        <text class="hb-row" x="420" y="246">Models</text>
+        <rect class="hb-box hb-run" x="420" y="256" width="66" height="44" rx="8"/>
+        <text class="hb-bt" x="453" y="283">LiteRT</text>
+        <g class="hb-new" style="--i:1"><rect class="hb-box hb-run" x="492" y="256" width="52" height="44" rx="8"/>
+        <text class="hb-bt" x="518" y="283">MLX</text></g>
+        <g class="hb-new" style="--i:2"><rect class="hb-box hb-run" x="550" y="256" width="84" height="44" rx="8"/>
+        <text class="hb-bt" x="592" y="276">Apple</text><text class="hb-bt" x="592" y="291">Intelligence</text></g>
+        <g class="hb-new" style="--i:3"><rect class="hb-box hb-remote" x="640" y="256" width="90" height="44" rx="8"/>
+        <text class="hb-bt" x="685" y="276">cloud, your</text><text class="hb-bt" x="685" y="291">key, off</text></g>
+        <g class="hb-new" style="--i:4"><rect class="hb-box hb-d1" x="420" y="306" width="310" height="22" rx="6"/>
+        <text class="hb-bt hb-small" x="575" y="321">d1 decision model: probabilities, no generated text</text></g>
+        <text class="hb-row" x="420" y="352">Network</text>
+        <rect class="hb-box" x="420" y="360" width="100" height="36" rx="8"/>
+        <text class="hb-bt" x="470" y="383">weights</text>
+        <g class="hb-new" style="--i:5"><rect class="hb-box hb-remote" x="526" y="360" width="100" height="36" rx="8"/>
+        <text class="hb-bt" x="576" y="383">your provider</text></g>
+        <g class="hb-new" style="--i:6"><rect class="hb-box hb-remote" x="632" y="360" width="98" height="36" rx="8"/>
+        <text class="hb-bt" x="681" y="383">your Outlook ↓</text></g>
+      </g>
+
+      </svg>
+    </div>
+    <figcaption>The highlighted parts on the right are new since July. Dashed boxes are off by default and only exist once the user switches them on.</figcaption>
+  </figure>
+
+  <h2>Four ways to run a model</h2>
+
+  <p>In July, Atlas had one runtime: Google's LiteRT-LM, loading Gemma bundles. In September I added Apple's MLX through mlx-swift, mostly because LiteRT's Metal path couldn't run the 2.6B LFM on an iPhone, while a 4-bit MLX build ran it on the GPU in 1.58 GB. Later that month came a backend for Apple Intelligence's on-device model, which needs no download at all on devices that have it. The fourth path is a cloud model: Gemini, OpenAI, Anthropic, an Open Responses endpoint or a local Ollama server, with a key you paste in yourself. It's off by default, and a banner stays in the chat for as long as it's on.</p>
+
+  <p>All four sit behind one switch, <code>LLMBackendFactory.make</code>, so the rest of the engine doesn't care which one answers. With this many models to choose from I also needed a way to tell people which one to pick, so 1.5.0 added a Model Arena that runs the same tasks across the installed models and shows a podium per purpose: chat, tool use, commitment extraction and so on.</p>
+
+  <!-- IMAGE SLOT: Settings › Model list showing the model menu with context windows and the Model Arena podium (docs/blog/images/atlas-model-menu.png) -->
+
+  <h2>A faster chat turn</h2>
+
+  <p>The biggest user-facing change is how fast a reply starts. In September I measured Atlas next to an always-resident on-device chat app and didn't like the gap. Two causes stood out. Atlas paid a full cold rebuild of the model after nearly every trip to the background, and it let the model decide to search, which meant two generations for most questions. The fix was to search first, without the model, and hand the excerpts to the model only when the search is confident. Since 24 September that "gated" turn has been the default for every model. LiteRT models now also stay loaded across a routine app switch. <a href="atlas-retrieve-then-generate.html">The retrieve-then-generate post</a> has the measurements and the one clever idea I had to delete again.</p>
+
+  <h2>Connecting your life, and acting on it</h2>
+
+  <p>Version 1.4.0 was the "Level 3" release, named after a think piece in which I sorted personal AI into levels. The knowledge graph learned verbs from everyday life on top of the work ones: who recommended a place, where you went, what you like or want. Near-duplicate names now merge into one person, cautiously and reversibly. For the first time Atlas could also do things: create a reminder or a calendar event, always behind an Allow card that shows exactly what and when. The model cannot approve its own action, and Siri, which got its own confirmation path, can't either.</p>
+
+  <p>The releases after that closed some of the loop. Answers have thumbs up and down, and with background enrichment on, Atlas turns your corrections into short principles that it carries into later answers. It forecasts open items before a meeting, notices when a reminder it created gets done, and lists what you still owe people in Open Loops, including promises made in recorded meetings. A Memory screen shows what Atlas believes about you and why, and lets you change it.</p>
+
+  <h2>Mail, notes and the rest of the surface</h2>
+
+  <p>Mail came in two forms. On the Mac, Atlas searches Apple Mail on disk. On iPhone the only way to reach Outlook is Microsoft Graph, which is why the network rule had to change. Email got its own retrieval subsystem, so a busy mailbox can't drown out your notes, and it's kept out of the knowledge graph because a sender's claims shouldn't create facts about your life.</p>
+
+  <p>Notes got a real home. The Notes tab edits your Obsidian vault in place, with an Obsidian-style Live Preview editor, a daily note, a quick switcher and <code>[[</code> link completion. Search and documents merged into one Library tab with People and Topics shelves, and documents open in a proper reader that can show the evidence behind an answer. Chat history, Quick Capture, Projects and the redesigned morning Briefing came in the same stretch. So did a handful of things that make Atlas feel like part of the system: Siri on the Mac, Live Activities for imports and the next meeting, an On This Day widget on the Lock Screen, Face ID or Touch ID app lock, and an export and import of your whole Atlas as one archive.</p>
+
+  <!-- IMAGE SLOT: The Notes tab on Mac with Live Preview open on a daily note (docs/blog/images/atlas-notes-live-preview.png) -->
+
+  <h2>Ears and eyes</h2>
+
+  <p>Atlas listens now. The Transcribe tab started with WhisperKit and moved to streaming Parakeet and Nemotron models from FluidAudio, with live speaker labels. Getting there involved a transcript that kept rewriting itself, an iPhone that killed the app for using too much memory with no crash log to show for it, and Core ML compilations that never finished on one iOS version. Since the LFM3 audio and omni models arrived, the chat model can also transcribe a spoken question itself, in English or Dutch.</p>
+
+  <p>It looks, too. With a vision model selected you can attach a photo to a question, and Look, a preview in 1.6, points the camera at the world: ask about the current frame, or let Observe watch for a new scene and describe it. The frames never leave the device. <a href="atlas-ears-and-eyes.html">The ears-and-eyes post</a> covers both halves.</p>
+
+  <h2>Measuring instead of guessing</h2>
+
+  <p>Two things changed how I work on Atlas more than any feature did. The first is <code>AtlasCLI</code>, a headless harness that runs the real retrieval path against a snapshot of my real index, explains why one excerpt ranked where it did, replays past chat turns against today's code and judges answers with a local model. Almost every ranking change since September started as a failure it found.</p>
+
+  <p>The second was a deep review in October. Reviewers confirmed 152 findings, which merged into 135 items: 3 critical, 20 high, 63 medium and 49 low. The two worst were privacy leaks of exactly the kind the invariants exist to prevent, where health and location data could reach a cloud model through a side door. I fixed the findings in 31 batches on 29 October, each with a regression test, and shipped 1.5.0 the same day. Some of that story is in the network post. The ideas the harness talked me out of are in the experiments post.</p>
+
+  <h2>A model that only answers with probabilities</h2>
+
+  <p>November added a different kind of model. Liquid AI's d1 is a decision model: you give it text, or a photo, and typed questions, and it returns probabilities in one forward pass without generating a single token. In Atlas it runs as its own component outside the chat backends, so it doesn't count as an extra way to call the language model. You can try it in Settings under Decide or from <code>AtlasCLI decide</code>. It also sorts the "Mail waiting on you" section of the Mac Briefing, and it filters rule-matched meeting commitments that aren't real promises.</p>
+
+  <p>The bigger user is the meeting agent that's in development for 1.6.1. On the Mac, and now on iPhone and iPad, Atlas follows a meeting against its agenda, flags figures that disagree with your records while people are still talking, answers questions about the call and writes a debrief. I wrote about why a decision model suits that job in <a href="meeting-agent-decision-model.html">SystemOne decision models in an agent pipeline</a>. That post covers a different deployment of the same idea, so I won't repeat it here.</p>
+
+  <!-- IMAGE SLOT: The Mac meeting view with the agenda River and one fact-check card (docs/blog/images/atlas-meeting-river.png) -->
+
+  <h2>What's next</h2>
+
+  <p>The plan for the next stretch is what I call Level 4: one loop from observing to understanding, predicting, planning, proposing, acting, verifying and remembering, where each step feeds the next. Most of the pieces exist. What's missing is the wiring that makes the outcome of an action come back around as memory. Next to that sit two less glamorous jobs: labeling a real holdout set of my own questions so ranking changes can be judged on data I didn't tune on, and running the meeting agent on real meetings instead of made-up ones.</p>
+
+  <p>When I wrote the July post I thought the hard part of on-device AI was fitting everything into the context window. Four months later I'd say the window was the easy part. The hard part is everything around the model: deciding when it runs, checking what it says, and proving with tests that your data stays where you put it.</p>
+
+  <div class="playground-callout">
+    <p class="pc-label">Try Atlas</p>
+    <p><a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=iphone">Get Atlas for iPhone &amp; iPad</a> or <a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=mac">get Atlas for Mac</a> on the App Store.</p>
+  </div>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://github.com/google-ai-edge/LiteRT-LM">LiteRT-LM</a>: Google's on-device LLM runtime and still Atlas's main path for <code>.litertlm</code> bundles, now pinned at v0.17.0.</li>
+    <li><a href="https://github.com/ml-explore/mlx-swift">MLX Swift</a>: Apple's array framework for Apple silicon. Atlas uses it to run 4-bit LFM models on the iPhone GPU and very long contexts on the Mac.</li>
+    <li><a href="https://www.liquid.ai/">Liquid AI</a>: the makers of the LFM2.5 and LFM3 models that became Atlas's focus, and of the d1 decision model.</li>
+    <li><a href="https://ai.google.dev/gemma">Gemma</a>: Google's open-weight models and Atlas's original default.</li>
+    <li><a href="https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2">all-MiniLM-L6-v2</a>: the sentence embedder that replaced NLEmbedding, converted to Core ML and bundled with the app.</li>
+    <li><a href="https://github.com/FluidInference/FluidAudio">FluidAudio</a>: on-device speech recognition and diarization (Parakeet, Nemotron) behind the Transcribe tab and the meeting agent.</li>
+    <li><a href="https://github.com/argmaxinc/WhisperKit">WhisperKit</a>: Whisper on Core ML, the first transcription engine in Atlas.</li>
+    <li><a href="https://github.com/mattt/AnyLanguageModel">AnyLanguageModel</a>: the Swift package behind the opt-in cloud backend, one interface over several providers.</li>
+    <li><a href="https://learn.microsoft.com/en-us/graph/outlook-mail-concept-overview">Microsoft Graph mail API</a>: how Atlas reads an Outlook or Microsoft 365 mailbox on iPhone, inbound only.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script>
+(function () {
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var svgs = document.querySelectorAll('svg.hb-anim');
+  if (reduce || !('IntersectionObserver' in window)) {
+    svgs.forEach(function (s) { s.classList.add('hb-in'); });
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('hb-in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.3 });
+    svgs.forEach(function (s) { io.observe(s); });
+  }
+
+  var readout = document.getElementById('hbReadout');
+  var lanes = document.querySelectorAll('#hbTimeline .hb-lane');
+  var defaultText = readout ? readout.innerHTML : '';
+  function show(lane) {
+    lanes.forEach(function (l) { l.classList.toggle('on', l === lane); });
+    if (!readout) return;
+    if (!lane) { readout.innerHTML = defaultText; return; }
+    var name = lane.querySelector('.hb-lane-label').textContent;
+    var href = lane.getAttribute('href');
+    readout.innerHTML = '<b>' + name + '</b> · ' + lane.getAttribute('data-span') + '<br>' +
+      lane.getAttribute('data-desc') + ' <a href="' + href + '">Read it</a>';
+  }
+  var touchedOnce = null;
+  lanes.forEach(function (lane) {
+    lane.setAttribute('tabindex', '0');
+    lane.setAttribute('aria-label', lane.querySelector('.hb-lane-label').textContent + ', ' +
+      lane.getAttribute('data-span') + '. ' + lane.getAttribute('data-desc'));
+    lane.addEventListener('mouseenter', function () { show(lane); });
+    lane.addEventListener('focus', function () { show(lane); });
+    lane.addEventListener('click', function (ev) {
+      // On touch, the first tap previews the row and the second follows the link.
+      if (ev.pointerType === 'touch' || (window.matchMedia && window.matchMedia('(hover: none)').matches)) {
+        if (touchedOnce !== lane) { ev.preventDefault(); touchedOnce = lane; show(lane); }
+      }
+    });
+  });
+  var svg = document.querySelector('#hbTimeline svg');
+  if (svg) svg.addEventListener('mouseleave', function () { show(null); touchedOnce = null; });
+})();
+</script>
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

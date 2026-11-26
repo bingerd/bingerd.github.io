@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Letting the Network In Without Letting the Data Out — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="My offline-only AI app gained a cloud model, an Outlook mailbox and photo uploads. How I amended a privacy invariant three times, kept it enforced by tests, and what a deep review still found." />
+  <meta property="og:title" content="Letting the Network In Without Letting the Data Out" />
+  <meta property="og:description" content="Atlas went from one network request to three sanctioned lanes: model weights, a cloud model on your own key, and your own mailbox. Here is how each lane is gated, and the two critical leaks a review found anyway." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/atlas-network-boundary.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/atlas-network-boundary.html" />
+  <meta name="theme-color" content="#0c0b0a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f3eee4" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+  <link rel="stylesheet" href="../../../css/posts/atlas-network-boundary.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Letting the Network In Without Letting the Data Out</h1>
+  <p><em>October 2026 · 13 min read</em></p>
+
+  <p>In July I wrote that Atlas, my on-device AI second brain, made exactly one network request: it downloaded the model, once, and that was it. A test called <code>NetworkEgressIsolationTests</code> scanned every source file and failed the build if networking code showed up anywhere else. I was proud of that sentence, and for a few months it was true.</p>
+
+  <p>It stopped being true in September. Atlas can now talk to a cloud model on your own API key, read your Outlook mailbox over Microsoft Graph, and, if you say yes to a specific photo, send that photo to the model you chose. This post is about how I let those three things in while keeping the promise enforceable, and about the deep review in late October that found two ways health data could still reach a cloud model after all.</p>
+
+  <div class="playground-callout series-box">
+    <p class="pc-label">Atlas series</p>
+    <ol>
+      <li><a href="atlas-context-engineering.html">Fitting a Second Brain Into 8,192 Tokens</a> (the July original)</li>
+      <li><a href="atlas-small-models.html">Taming Small Models That Don't Speak Your Tool Protocol</a></li>
+      <li><a href="atlas-retrieve-then-generate.html">Retrieve, Then Generate: Closing the Speed Gap on a Phone</a></li>
+      <li><strong>Letting the Network In Without Letting the Data Out</strong></li>
+      <li><a href="atlas-ears-and-eyes.html">Ears and Eyes on a Phone: Voice and Vision in Atlas</a></li>
+      <li><a href="atlas-experiments-not-shipped.html">The Experiments I Didn't Ship</a></li>
+      <li><a href="atlas-july-to-november.html">Atlas, July to November</a></li>
+    </ol>
+  </div>
+
+  <h2>Why open the door at all</h2>
+
+  <p>In early September I did a strategic audit of the whole app, and it reached an uncomfortable conclusion. The part of Atlas that was actually different from everything else on the App Store was the memory layer: the ingest pipeline, the hybrid index, the graph, the retrieval rules. The weakest layer, and the one I had the least control over, was the small language model at the end of it. Gemma E2B was failing the groundedness gate in my own eval suite. I could keep polishing prompts for a 2B model, or I could let people who already pay for a frontier model plug it in, while the memory stays exactly where it was.</p>
+
+  <p>I chose the second option and kept every on-device runtime. The model is a swappable component behind one <code>LLMBackend</code> protocol, so a cloud backend became the third implementation next to LiteRT-LM and MLX. It is built on Hugging Face's <a href="https://github.com/huggingface/AnyLanguageModel">AnyLanguageModel</a> package and speaks to Gemini, OpenAI, Anthropic, any Open Responses endpoint, or an Ollama server on your own network.</p>
+
+  <p>Mail came in a few days later for a blunter reason. On the Mac, Atlas reads Apple Mail straight off disk from <code>~/Library/Mail</code>. On iOS there is no readable mail store and no API to read one. If you want your phone's second brain to know about your inbox, a remote provider is the only option there is.</p>
+
+  <h2>What the old rule actually checked</h2>
+
+  <p>The July test is deliberately dumb, and I still think that's its best quality. It does a raw-text scan of every <code>.swift</code> file under <code>Sources/</code> and looks for tokens that open a connection: <code>URLSession</code> and its task types, <code>.data(from:</code>, <code>NWConnection</code>, <code>CFStream</code>. It also bans <code>Process(</code>, so nobody can shell out to <code>curl</code>, and <code>CLGeocoder</code>, because reverse geocoding would quietly send your location visits to Apple's servers. Atlas stores raw coordinates instead. There's no syntax tree and no clever analysis. A doc comment that writes <code>URLSession</code> in the wrong file fails the build, and I accept that false positive, because the fix costs one rename and a real leak can never land silently.</p>
+
+  <p>So the question for each new feature was never "is this safe?" in the abstract. It was "which file gets to contain the token, and under what condition does that file's code ever run?"</p>
+
+  <h2>Three lanes, each with one gate</h2>
+
+  <p>The invariant (number 6 in the project's list of laws) now reads: network egress is a weight download, a user-enabled remote model, or a user-connected mail account, and nothing else. Each of the three lanes has exactly one file allowed to open it and a condition that has to be true before that file's code is even constructed. Try the toggles below.</p>
+
+  <figure class="nb-fig">
+    <div class="nb-board" id="nbBoard">
+      <div class="nb-controls">
+        <button type="button" id="nbCloud" aria-pressed="false">Cloud model: off</button>
+        <button type="button" id="nbMail" aria-pressed="false">Outlook mail: off</button>
+      </div>
+      <div class="nb-scroll">
+        <svg viewBox="0 0 820 420" role="img" aria-labelledby="nbT1 nbD1">
+          <title id="nbT1">Atlas's three sanctioned network lanes</title>
+          <desc id="nbD1">A device boundary with six data sources inside. Three lanes cross the boundary: model weights coming in, a cloud model that receives the turn's prompt, and Microsoft Graph mail coming in. When the cloud model is on, notes, calendar and email excerpts can join the prompt, while health, location and observations stay on the device.</desc>
+          <defs>
+            <marker id="nbArr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" class="nb-head" id="nbArrHead" />
+            </marker>
+            <marker id="nbArrLive" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" class="nb-head live" />
+            </marker>
+          </defs>
+
+          <rect class="nb-device" x="20" y="30" width="440" height="372" rx="18" />
+          <text class="nb-h" x="40" y="58">Your iPhone or Mac</text>
+          <text class="nb-s" x="40" y="76">index, graph and every source live here</text>
+
+          <rect class="nb-tray" x="262" y="104" width="182" height="150" rx="12" />
+          <text class="nb-s" x="353" y="124" text-anchor="middle">this turn's prompt</text>
+
+          <!-- ghost slots: an excerpt is a copy, the document stays -->
+          <rect class="nb-ghost" x="44" y="100" width="134" height="30" rx="15" />
+          <rect class="nb-ghost" x="44" y="144" width="134" height="30" rx="15" />
+          <rect class="nb-ghost" x="44" y="188" width="134" height="30" rx="15" />
+
+          <g class="nb-chip ok" id="nbNotes"><rect x="44" y="100" width="134" height="30" rx="15" /><text x="111" y="120" text-anchor="middle">Notes &amp; files</text></g>
+          <g class="nb-chip ok" id="nbCal"><rect x="44" y="144" width="134" height="30" rx="15" /><text x="111" y="164" text-anchor="middle">Calendar</text></g>
+          <g class="nb-chip ok" id="nbEmail"><rect x="44" y="188" width="134" height="30" rx="15" /><text x="111" y="208" text-anchor="middle">Email</text></g>
+          <text class="nb-new" x="186" y="208">+ new mail</text>
+
+          <g class="nb-chip guard"><rect x="44" y="262" width="134" height="30" rx="15" /><text x="111" y="282" text-anchor="middle">Health</text></g>
+          <g class="nb-chip guard"><rect x="44" y="306" width="134" height="30" rx="15" /><text x="111" y="326" text-anchor="middle">Location visits</text></g>
+          <g class="nb-chip guard"><rect x="44" y="350" width="134" height="30" rx="15" /><text x="111" y="370" text-anchor="middle">Observations</text></g>
+          <text class="nb-stay" x="188" y="282">stays here (#11)</text>
+          <text class="nb-stay" x="188" y="326">stays here (#11)</text>
+          <text class="nb-stay" x="188" y="370">stays here (#11)</text>
+
+          <!-- lane (a): weights in -->
+          <path class="nb-lane in live" id="nbLaneA" d="M620,92 L476,92" marker-end="url(#nbArrLive)" />
+          <rect class="nb-gate open" x="452" y="82" width="16" height="20" rx="3" />
+          <text class="nb-gatetxt" x="545" y="80">LLMModelManager.swift</text>
+
+          <!-- lane (b): prompt out -->
+          <path class="nb-lane out" id="nbLaneB" d="M444,214 L612,214" marker-end="url(#nbArr)" />
+          <rect class="nb-gate" id="nbGateB" x="452" y="204" width="16" height="20" rx="3" />
+          <text class="nb-gatetxt" x="540" y="202">RemoteLLMService.swift</text>
+
+          <!-- lane (c): mail in -->
+          <path class="nb-lane in" id="nbLaneC" d="M620,336 L476,336" marker-end="url(#nbArr)" />
+          <rect class="nb-gate" id="nbGateC" x="452" y="326" width="16" height="20" rx="3" />
+          <text class="nb-gatetxt" x="545" y="324">GraphMailProvider.swift</text>
+
+          <g class="nb-dest"><rect x="620" y="62" width="186" height="60" rx="10" /></g>
+          <text class="nb-h" x="636" y="88">Model host</text>
+          <text class="nb-s" x="636" y="107">weights in, SHA-256 pinned</text>
+
+          <g class="nb-dest"><rect x="620" y="184" width="186" height="60" rx="10" /></g>
+          <text class="nb-h" x="636" y="210">Cloud model</text>
+          <text class="nb-s" x="636" y="229" id="nbBSub">your key, off by default</text>
+
+          <g class="nb-dest"><rect x="620" y="306" width="186" height="60" rx="10" /></g>
+          <text class="nb-h" x="636" y="332">Microsoft Graph</text>
+          <text class="nb-s" x="636" y="351">your mailbox, inbound only</text>
+        </svg>
+      </div>
+      <p class="nb-status" id="nbStatus" aria-live="polite"><b>Both off (the default).</b> The only lane that ever opens is the weight download, and it carries no user content.</p>
+    </div>
+    <figcaption>Each lane has one file allowed to open a connection, and a gate that has to be open before that code is built. Health, location and observations never join a prompt that leaves the device.</figcaption>
+  </figure>
+
+  <h3>Lane (a): weights</h3>
+
+  <p>This is the July lane, slightly wider. <code>LLMModelManager.downloadModel</code> fetches model bundles over HTTPS from a host allowlist in the manifest and verifies a streaming SHA-256 against the value compiled into the app. A test checks that every downloadable manifest entry passes its own allowlist, so a typo in a URL fails the build. Voice models arrived later and are the honest exception: WhisperKit and FluidAudio (Parakeet, Nemotron and the diarizers) download public weights through their own clients, which the source scan can't see. FluidAudio's downloads only start from a Download tap. Neither is SHA-pinned. I wrote that trade down in the invariant itself rather than pretend the scan covers it.</p>
+
+  <h3>Lane (b): a cloud model on your own key</h3>
+
+  <p><code>RemoteLLMService</code> is the only file allowed to <code>import AnyLanguageModel</code>, and the scan enforces that just like it enforces <code>URLSession</code>. It is off by default. <code>LLMBackendFactory</code> builds it only when the remote config is enabled <em>and</em> the provider's key is in the Keychain, stored as <code>kSecAttrAccessibleWhenUnlockedThisDeviceOnly</code> and never in UserDefaults or a log. If either condition fails, the "remote" model degrades to the same "no model" placeholder as a missing bundle, and a test proves the Keychain is not even read while the feature is disabled. Turning it on goes through a data notice. While it's active, the chat shows a banner that doesn't go away, and the empty state stops claiming everything stays on the device.</p>
+
+  <p>What it sends is the prompt of each chat turn: your question, the conversation, and the excerpts retrieval picked. The memory layer never uses it. Ingest, indexing, the graph, MCP and background enrichment all stay local, because enrichment would ship whole documents to a provider without you asking for anything. Standing questions skip while the remote model is selected.</p>
+
+  <h3>Lane (c): your mailbox, inbound only</h3>
+
+  <p><code>GraphMailProvider</code> reads your Outlook or Microsoft 365 mailbox. Nothing goes up except the access token and Graph's own query parameters. It's off by default, gated on a config flag plus a refresh token in the Keychain, and it syncs only while the app is in the foreground, so your mail can be a little stale until you open Atlas. I'm fine with that trade.</p>
+
+  <p>The part I like most is structural. The file is sanctioned by name in the scan, but its only real connection lives in a single <code>live(...)</code> transport factory. Everything else in the file is parsing. That's why all eleven of its tests run against an injected stub and never open a socket, and why a reviewer can audit the network surface of the mail feature by reading one function.</p>
+
+  <!-- IMAGE SLOT: Settings → Model → Cloud model screen with the data notice, or the chat's persistent "cloud model" banner (docs/blog/images/atlas-cloud-notice.png) -->
+
+  <h2>The entitlement that proved nothing</h2>
+
+  <p>Writing the mail lane taught me something embarrassing about the July post. One of the egress tests, <code>networkEntitlementOnlyOnMacApp</code>, checked that only the macOS app carries the <code>com.apple.security.network.client</code> entitlement, and I had counted that as evidence the iOS app couldn't reach the network.</p>
+
+  <p>It never was. That key belongs to the macOS App Sandbox, and iOS ignores it entirely: any iOS app can make outbound HTTPS calls. The test would have stayed green when Graph mail landed on iPhone, which is exactly when it should have complained. On iOS the two real constraints are which file may connect (the source scan) and whether that code is ever constructed (the config and Keychain gate). I rewrote the test in place so its name and message say that, because a green test asserting something false is worse than no test.</p>
+
+  <blockquote class="pullquote">A green test that asserts something false is worse than having no test.</blockquote>
+
+  <h2>A photo is the narrowest door</h2>
+
+  <p>In October, cloud models got photos. Of everything that can leave the device, a photo is the most personal, so this part of lane (b) is the most locked down. A photo goes to the provider only when you attached it to that turn <em>and</em> approved that one photo in a dialog that names the recipient, like "Send this photo to Anthropic?". There's no "always allow" option.</p>
+
+  <p>Before the dialog appears, <code>ImageAttachmentPreparer</code> turns the photo upright, scales its long edge down to at most 1,568 pixels, keeps it under 2 MB and re-encodes it as a JPEG with GPS, EXIF, TIFF and IPTC metadata stripped. The dialog shows those exact bytes, which are also the bytes that get sent.</p>
+
+  <p>The approval itself is a default-deny <code>@TaskLocal</code> called <code>ImageEgressConsent</code>. Only the in-app chat binds it, with a handler that says yes once and only to those bytes. Siri, MCP, the demo and enrichment never bind it, and the source scan checks that the one-shot approval appears in <code>ChatView.swift</code> and nowhere else. If the consent is missing or declined, the turn ends with an error and nothing is sent. It does not quietly fall back to a text-only answer, because Atlas has a separate rule against silent retries. Tool rounds inside the approved turn may re-send the photo to the same provider. Later turns never do, since history keeps only the text.</p>
+
+  <h2>Two boundaries that used to be one</h2>
+
+  <p>Adding mail forced me to split a rule I'd thought of as a single thing. Atlas already kept health, location and observation data out of the knowledge graph. Email needed to stay out of the graph too, for a different reason: it's attacker-authored. Anyone who knows your address can write a message, and if senders, companies and claims from message bodies could mint graph nodes, anyone could write into your knowledge graph.</p>
+
+  <p>But email should not be hidden from the off-device surfaces. A local MCP client searching your mail on your behalf is the whole point of indexing it. So Atlas now has two constants that used to be one set:</p>
+
+  <table>
+    <thead><tr><th>Source</th><th>Kept out of the graph</th><th>Kept off-device (MCP, Siri, Spotlight, widget, cloud model)</th></tr></thead>
+    <tbody>
+      <tr><td>Health, location, observations</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Look's camera memory</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Email</td><td>Yes (attacker-authored)</td><td>No, searching it is the product</td></tr>
+      <tr><td>Notes, files, calendar</td><td>No</td><td>No</td></tr>
+    </tbody>
+  </table>
+
+  <p>A cloud model counts as an off-device surface. Every backend reports <code>sendsPromptsOffDevice</code>, and only the remote one says true. When it does, <code>agentQuery</code> unions the off-device exclusions into whatever filter the caller passed, so health, observations and location never ride the pre-retrieved excerpts, the model's own <code>search_knowledge</code> calls or the health tool. A surface's exclusions always win over an include, so an MCP client asking for <code>sources: health</code> gets an empty result instead of a wider search.</p>
+
+  <p>That union shipped on October 24. Five days later, a review showed me it had two holes.</p>
+
+  <h2>Then I had the whole thing reviewed</h2>
+
+  <p>Between October 25 and 29 I ran a full-codebase review as a multi-agent workflow in Claude Code. Finder agents read each subsystem, and every finding had to survive two independent adversarial verifiers, plus a tie-breaker when they disagreed, before it counted. It confirmed 152 findings. Merging the ones that shared a root cause left 135.</p>
+
+  <figure class="nb-fig">
+    <div class="nb-scroll">
+      <svg class="nb-bars" id="nbBars" viewBox="0 0 720 250" role="img" aria-labelledby="nbT2 nbD2">
+        <title id="nbT2">October 2026 deep review findings by severity</title>
+        <desc id="nbD2">135 merged findings: 3 critical, 20 high, 63 medium and 49 low.</desc>
+        <text class="nb-note" x="20" y="26">152 confirmed findings, 135 after merging shared root causes</text>
+
+        <text class="nb-lbl" x="20" y="66">Critical</text>
+        <rect class="nb-bar crit" x="110" y="50" width="20" height="24" rx="3" />
+        <text class="nb-val" x="140" y="67">3</text>
+        <text class="nb-note" x="170" y="67">C1, C2: health and location reaching a cloud model</text>
+
+        <text class="nb-lbl" x="20" y="116">High</text>
+        <rect class="nb-bar high d1" x="110" y="100" width="133" height="24" rx="3" />
+        <text class="nb-val" x="253" y="117">20</text>
+        <text class="nb-note" x="290" y="117">e.g. H10: new provider without a new data notice</text>
+
+        <text class="nb-lbl" x="20" y="166">Medium</text>
+        <rect class="nb-bar rest d2" x="110" y="150" width="420" height="24" rx="3" />
+        <text class="nb-val" x="540" y="167">63</text>
+
+        <text class="nb-lbl" x="20" y="216">Low</text>
+        <rect class="nb-bar rest d3" x="110" y="200" width="327" height="24" rx="3" />
+        <text class="nb-val" x="447" y="217">49</text>
+      </svg>
+    </div>
+    <figcaption>The merged findings by severity. The two privacy criticals were fixed first. The third critical was a speech-recognition bug that dropped short utterances.</figcaption>
+  </figure>
+
+  <p>Two of the three criticals broke the boundary I had just built.</p>
+
+  <p><strong>C1</strong> was the calendar shortcut from the July post. When a question names a time period, Atlas injects dated "day cards" straight from one SQL range query, with a high score and a boost, bypassing the retriever. The exclusion filter was applied in both retrieval legs, FTS and vectors, but that injection never received it. So with HealthKit ingestion and a cloud model both on, the perfectly ordinary question "what did I do this week?" sent the week's health summary and workout cards to the provider.</p>
+
+  <p><strong>C2</strong> was a timing bug in two places. Briefing narration checked whether the backend was off-device <em>before</em> the chat path resumed a suspended model, and a suspended backend is a placeholder that reports false. Suspends are routine: an ingest memory gate or a memory-pressure warning both cause one. In the chat path, <code>agentQuery</code> read the off-device flag near the top but only captured the backend for streaming much later, with several awaits in between, so switching from a local model to a cloud model mid-turn could stream excerpts retrieved under on-device rules.</p>
+
+  <p>The review's summary of the pattern stung because it was accurate: trust boundaries were enforced per surface instead of at one choke point. Smaller findings fit the same theme. Switching provider while remote was enabled skipped the new provider's data notice (H10), and a briefing narrated by a cloud model still said "Written on this device" (M5).</p>
+
+  <p>Email, the source I had just labelled hostile, reached privileged sinks too. A <code>```chart</code> fence is untrusted JSON, and the charting library wrote string tooltip formatters into <code>innerHTML</code> under a content policy that allowed inline handlers, so a crafted chart could run script (H2). The confirmation card for act-tools showed a label and a date but hid the payload you were approving, so a prompt-injected email could get a false fact remembered behind a blind "Allow" (H3). Email identity was keyed on the sender-controlled Message-ID, so someone who knew a real message's ID could send a new one that overwrote it in the index, fake payment details included (M3).</p>
+
+  <h2>Fixing it in one day, one batch at a time</h2>
+
+  <p>On October 29 I worked through the plan in 31 batches, one commit each, starting with the boundary. Every batch began with a regression test that failed on <code>main</code>. The first batch passes the turn's filter into the calendar injection, makes <code>agentQuery</code> read its backend exactly once for the exclusion, window, tools and stream, decides briefing egress from the selected model as well as the live one, and revokes consent at the one place a provider or base URL is saved.</p>
+
+  <p>It also adds the choke point the review asked for. <code>RemoteLLMService</code> now withholds any tool result or history turn whose citations name an off-device-excluded document. If some future surface forgets the filter again, the last file before the network still refuses. The second batch strips chart options down to safe fields before rendering, drops <code>'unsafe-inline'</code> from the script policy, and makes confirmation cards list every argument the tool will write. A later batch keys email on the provider's own identity and keeps Message-ID for threading only.</p>
+
+  <p>Some findings were about the tests themselves. The MCP exclusion test re-implemented the wiring with a literal instead of testing the real code (L6), and the rule that interactive search never calls the LLM had no enforcing test at all (L7). A rule is only as good as the thing that checks it.</p>
+
+  <p>One thing remains deliberately out of scope, and the policy and the enable notice both say so. If you switch to a cloud model in the middle of a conversation, the earlier turns are already in that conversation's history and get sent as history, minus anything citing an excluded source.</p>
+
+  <h2>The doors that open inward</h2>
+
+  <p>Privacy also covers who can open the app. October added App Lock: Face ID, Touch ID or your passcode when you return, immediately or after 1, 5 or 15 minutes. <code>LAContext</code> lives in exactly one file, <code>AppLockController.swift</code>, and a source scan keeps it there. The first biometric prompt you ever see is the one triggered by turning the lock on, which also proves you can get back in. Siri can't be shielded by an in-app lock, so the intents that read your library now require an unlocked device.</p>
+
+  <p>The same "only after you asked" rule now covers permission prompts. Passive surfaces like the briefing card, observation detectors or the Meeting screen's upcoming list read reminders and calendar only if access was already granted. The review caught the calendar side still prompting from a passive surface (M2), so opening an empty chat could pop a permission sheet. Now only an action you took can trigger one.</p>
+
+  <!-- IMAGE SLOT: The per-photo consent dialog ("Send this photo to …?") showing the prepared photo and its size (docs/blog/images/atlas-photo-consent.png) -->
+
+  <h2>What I'd tell July me</h2>
+
+  <p>The raw-text scan held up. Every new lane was easy to reason about because the scan forced a single answer to "which file?", and I'd build it the same way again. What I underestimated was everything after the file. Deciding <em>whether</em> a lane is open and <em>what</em> is allowed through it can't be spread across every caller that builds a prompt, because one of those callers will be a shortcut you wrote months ago for a different reason. The calendar injection in C1 is a feature I described proudly in July.</p>
+
+  <p>So the rule I work by now has two halves. Each kind of egress gets one file, enforced by a dumb scan. Each trust decision gets one choke point right before that file, enforced by a test that runs the real code path, because the copies are where the holes were.</p>
+
+  <div class="playground-callout">
+    <p class="pc-label">Try Atlas</p>
+    <p><a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=iphone">Get Atlas for iPhone &amp; iPad</a> or <a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=mac">get Atlas for Mac</a> on the App Store. Cloud models and mail are off until you turn them on.</p>
+  </div>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://github.com/huggingface/AnyLanguageModel">AnyLanguageModel (Hugging Face)</a>: The Swift package behind Atlas's cloud backend. One API for Gemini, OpenAI, Anthropic, Open Responses and Ollama, which meant the remote lane could live in a single file the egress scan can name.</li>
+    <li><a href="https://learn.microsoft.com/en-us/graph/api/resources/mail-api-overview">Microsoft Graph mail API</a>: How Atlas reads an Outlook or Microsoft 365 mailbox on iOS, where no local mail store is readable. Atlas only reads; nothing is ever uploaded.</li>
+    <li><a href="https://developer.apple.com/documentation/security/ksecattraccessiblewhenunlockedthisdeviceonly">kSecAttrAccessibleWhenUnlockedThisDeviceOnly</a>: The Keychain accessibility class for provider keys and mail refresh tokens. The secrets are readable only while the device is unlocked and never migrate to another device through a backup.</li>
+    <li><a href="https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.network.client">com.apple.security.network.client</a>: The macOS App Sandbox entitlement I once mistook for an iOS network guard. It is a sandbox key, so on iOS it constrains nothing.</li>
+    <li><a href="https://developer.apple.com/documentation/localauthentication">LocalAuthentication</a>: The framework behind App Lock. Atlas always uses device-owner authentication, so the passcode remains a way back in when biometrics fail.</li>
+    <li><a href="https://genai.owasp.org/llmrisk/llm01-prompt-injection/">OWASP LLM01: Prompt Injection</a>: The threat model behind treating email as attacker-authored. A message body is written by someone other than the user, so it must never reach the graph or a privileged sink unchecked.</li>
+    <li><a href="https://modelcontextprotocol.io/">Model Context Protocol (MCP)</a>: Atlas's local, read-only server. It's an off-device surface for health and location, and an intended way to search your mail.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script>
+(function () {
+  var board = document.getElementById('nbBoard');
+  var cloudBtn = document.getElementById('nbCloud');
+  var mailBtn = document.getElementById('nbMail');
+  var status = document.getElementById('nbStatus');
+  var laneB = document.getElementById('nbLaneB');
+  var laneC = document.getElementById('nbLaneC');
+  var gateB = document.getElementById('nbGateB');
+  var gateC = document.getElementById('nbGateC');
+  var bSub = document.getElementById('nbBSub');
+  var moves = [
+    { el: document.getElementById('nbNotes'), x: 196, y: 40 },
+    { el: document.getElementById('nbCal'), x: 196, y: 36 },
+    { el: document.getElementById('nbEmail'), x: 196, y: 32 }
+  ];
+  var state = { cloud: false, mail: false };
+  var touched = false;
+
+  function render() {
+    board.classList.toggle('cloud', state.cloud);
+    board.classList.toggle('mail', state.mail);
+    cloudBtn.setAttribute('aria-pressed', String(state.cloud));
+    mailBtn.setAttribute('aria-pressed', String(state.mail));
+    cloudBtn.textContent = 'Cloud model: ' + (state.cloud ? 'on' : 'off');
+    mailBtn.textContent = 'Outlook mail: ' + (state.mail ? 'on' : 'off');
+    moves.forEach(function (m) {
+      m.el.style.transform = state.cloud ? 'translate(' + m.x + 'px,' + m.y + 'px)' : 'translate(0px,0px)';
+    });
+    laneB.classList.toggle('live', state.cloud);
+    laneB.setAttribute('marker-end', state.cloud ? 'url(#nbArrLive)' : 'url(#nbArr)');
+    gateB.classList.toggle('open', state.cloud);
+    laneC.classList.toggle('live', state.mail);
+    laneC.setAttribute('marker-end', state.mail ? 'url(#nbArrLive)' : 'url(#nbArr)');
+    gateC.classList.toggle('open', state.mail);
+    bSub.textContent = state.cloud ? 'gets this turn’s prompt' : 'your key, off by default';
+
+    var msg;
+    if (!state.cloud && !state.mail) {
+      msg = '<b>Both off (the default).</b> The only lane that ever opens is the weight download, and it carries no user content.';
+    } else if (state.cloud && !state.mail) {
+      msg = '<b>Cloud model on.</b> Excerpts from notes, calendar and email can ride this turn’s prompt. Health, location and observations are added to the turn’s exclusions and stay on the device.';
+    } else if (!state.cloud && state.mail) {
+      msg = '<b>Outlook mail on.</b> New messages flow in from Graph while Atlas is open. Nothing flows out, and the mail never enters the knowledge graph.';
+    } else {
+      msg = '<b>Both on.</b> Mail flows in and can be quoted to the cloud model as an excerpt. Health, location and observations still never leave.';
+    }
+    status.innerHTML = msg;
+  }
+
+  cloudBtn.addEventListener('click', function () { touched = true; state.cloud = !state.cloud; render(); });
+  mailBtn.addEventListener('click', function () { touched = true; state.mail = !state.mail; render(); });
+
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var bars = document.getElementById('nbBars');
+
+  if (reduced || !('IntersectionObserver' in window)) {
+    state.cloud = true;
+    render();
+    bars.classList.add('shown');
+    return;
+  }
+
+  render();
+
+  var boardIO = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      boardIO.disconnect();
+      setTimeout(function () { if (!touched) { state.cloud = true; render(); } }, 900);
+      setTimeout(function () { if (!touched) { state.mail = true; render(); } }, 3200);
+    });
+  }, { threshold: 0.5 });
+  boardIO.observe(board);
+
+  var barsIO = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      barsIO.disconnect();
+      bars.classList.add('shown');
+    });
+  }, { threshold: 0.4 });
+  barsIO.observe(bars);
+})();
+</script>
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

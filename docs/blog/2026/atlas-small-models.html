@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Taming Small Models That Don't Speak Your Tool Protocol — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Adding Liquid's LFM2.5 to Atlas next to Gemma: a native crash traced to one sampling option, tool calls that arrive as plain text, thinking that needs a budget, a bigger context window that produced empty answers, and a second runtime for the iPhone." />
+  <meta property="og:title" content="Taming Small Models That Don't Speak Your Tool Protocol" />
+  <meta property="og:description" content="What it took to run a second family of small models on-device: recovering leaked tool calls, bounding thinking, and learning that a model's trained context length is a hard wall." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/atlas-small-models.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/atlas-small-models.html" />
+  <meta name="theme-color" content="#0c0b0a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f3eee4" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+  <link rel="stylesheet" href="../../../css/posts/atlas-small-models.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Taming Small Models That Don't Speak Your Tool Protocol</h1>
+  <p><em>September 2026 · 16 min read</em></p>
+
+  <p>When I wrote about Atlas in July, it ran one family of models: Gemma, on Google's LiteRT-LM runtime. The whole app had been shaped around how Gemma behaves. It emits tool calls in the JSON field the runtime expects, it tolerates every sampling option I attach, and it stays quiet about its reasoning unless asked. In early September I added a second family, Liquid AI's LFM2.5, in a 1.2B and a 2.6B size, converted to the <code>.litertlm</code> format by the LiteRT community. They are small and fast, and on paper they were a drop-in addition: same runtime, same file format, a new row in the model manifest.</p>
+
+  <p>In practice almost every assumption I had baked in turned out to be a Gemma assumption. This post is the list of things that broke, roughly in the order I found them, and what each one taught me about running models you didn't train on a runtime you didn't write.</p>
+
+  <div class="playground-callout series-box">
+    <p class="pc-label">Atlas series</p>
+    <ol>
+      <li><a href="atlas-context-engineering.html">Fitting a Second Brain Into 8,192 Tokens</a> (the July original)</li>
+      <li><strong>Taming Small Models That Don't Speak Your Tool Protocol</strong></li>
+      <li><a href="atlas-retrieve-then-generate.html">Retrieve, Then Generate: Closing the Speed Gap on a Phone</a></li>
+      <li><a href="atlas-network-boundary.html">Letting the Network In Without Letting the Data Out</a></li>
+      <li><a href="atlas-ears-and-eyes.html">Ears and Eyes on a Phone: Voice and Vision in Atlas</a></li>
+      <li><a href="atlas-experiments-not-shipped.html">The Experiments I Didn't Ship</a></li>
+      <li><a href="atlas-july-to-november.html">Atlas, July to November</a></li>
+    </ol>
+  </div>
+
+  <h2>A crash with a convincing wrong explanation</h2>
+
+  <p>The first LFM2.5 generation died in native code with <code>INVALID_ARGUMENT "Logits dimensions must be [batch_size, 1, vocab_size]"</code>. Nothing on the Swift side could catch it. The error mentions tensor shapes, so I went looking for a shape problem, and I found a very plausible one. The manifest pointed at a CPU-flavoured <code>_int4</code> export while Atlas's warmup tries the GPU first, and there is a real upstream issue (<a href="https://github.com/google-ai-edge/LiteRT-LM/issues/3129">LiteRT-LM #3129</a>) about prefill signatures on iOS Metal. I swapped in the <code>_int4_gpu</code> export, added a CPU-only flag for the iPhone, and felt clever.</p>
+
+  <p>The crash was still there. It reproduced on LiteRT-LM v0.15 and v0.16, on the GPU and on the CPU, with a 1,024-token window and with 4,096. When a native crash survives every change to the backend, the window and the runtime version, the engine configuration is probably innocent. What's left is whatever the app sends <em>per message</em>.</p>
+
+  <p>The way I proved it was to take Atlas out of the picture. The upstream <code>litert-lm</code> command-line tool loaded the identical file and generated cleanly on every backend and window where Atlas failed. So the bundle and the runtime were fine, and the difference had to be in the per-send options Atlas attaches. One of those is a mild repetition penalty of 1.1, which I had wired in during August to damp the token loops small models fall into. I had A/B tested it on Gemma E2B and it didn't hurt grounding (0.56 with it, 0.57 without). The upstream CLI never sets one. With the penalty disabled, all four real-model smoke tests passed.</p>
+
+  <p>The fix is one manifest flag, <code>disableRepetitionPenalty</code>, set on both LFM2.5 entries and honoured even when the environment override asks for a penalty. I kept the GPU-export change too, because it fixed a real problem. It just wasn't this problem. The lesson I wrote into the project notes is about method: when a native crash ignores every engine-level change, diff your per-send arguments against the most minimal client that works, and don't accept the first theory that happens to have a real issue number attached.</p>
+
+  <h2>Tool calls that arrive as prose</h2>
+
+  <p>The next problem was quieter and much more important. Atlas's tools (search the knowledge base, check the calendar, create a reminder) run inside LiteRT-LM's native agent loop. I had believed that loop was grammar-enforced. Reading the runtime source showed otherwise: it parses the model's free-form output looking for a structured <code>tool_calls</code> JSON field. Gemma is trained to fill that field. LFM2.5 is trained to write its calls in its own syntax, a Python-style bracket like <code>[search_knowledge(query="dentist")]</code>, sometimes wrapped in <code>&lt;|tool_call_start|&gt;</code> and <code>&lt;|tool_call_end|&gt;</code> tokens.</p>
+
+  <p>So the runtime never saw a call. The bracket text streamed into the chat bubble, nothing was searched, and the model carried on to answer from nothing. On my tool-call eval, LFM2.5 1.2B scored a tool recall of 0.00 in both its Instruct and Thinking variants. I ran a Gemma control through the identical pipeline at 4,096 and 8,192 tokens to rule out the window. The mismatch was between the model family and the runtime's tool protocol, and no prompt was going to fix it.</p>
+
+  <p>My first design was ambitious: wrap every agent response in a JSON envelope enforced by LiteRT-LM's constrained-decoding option, so any model from any vendor would be forced into one format. Then I measured that option on the version I ship, and it was a no-op. Output was byte-identical with and without the constraint, on LFM2.5 and on Gemma. A design that depends on a decoder guarantee the decoder doesn't actually give is a design built on sand, so I went the other way and taught Atlas to recognise the model's own dialect.</p>
+
+  <p>The recovery has four steps. While the answer streams, Atlas asks one question about the text so far: could this still turn into a leaked call? If the first chunk is <code>Your appointment</code>, the answer is no, and the text streams live as it always did. If it starts with <code>[</code> or a tool-call token, Atlas holds the text back and shows nothing yet. When the stream ends, <code>parseLeakedToolCall</code> turns the bracket syntax into a real <code>ToolCall</code>. That call goes through <code>ToolRegistry.execute</code>, the same choke point every native call uses, so a reminder or calendar event still needs the user's confirmation and the model can't approve its own action. Finally, the tool result is sent back as a continuation on the <em>same</em> warm conversation, so the KV cache is reused and the follow-up costs one short prefill.</p>
+
+  <figure class="sm-fig" id="smLeak">
+    <div class="sm-panel">
+      <div class="sm-top" role="group" aria-label="Scenario">
+        <button type="button" data-mode="leak" aria-pressed="true">LFM2.5 leaks a call</button>
+        <button type="button" data-mode="plain" aria-pressed="false">Ordinary answer</button>
+        <button type="button" class="sm-replay">Replay</button>
+      </div>
+      <div class="sm-scroll">
+        <svg viewBox="0 0 760 92" role="img" aria-label="Five stages: stream, hold back, parse, ToolRegistry.execute, continue on the warm KV cache">
+          <defs><marker id="smArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path class="sm-head" d="M0,0 L8,4 L0,8 z"/></marker></defs>
+          <g class="sm-wires">
+            <path class="sm-wire" d="M136,46 H156" marker-end="url(#smArrow)"/>
+            <path class="sm-wire" d="M288,46 H308" marker-end="url(#smArrow)"/>
+            <path class="sm-wire" d="M440,46 H460" marker-end="url(#smArrow)"/>
+            <path class="sm-wire" d="M592,46 H612" marker-end="url(#smArrow)"/>
+          </g>
+          <g class="sm-stage" data-stage="0"><rect x="8" y="16" width="128" height="60" rx="10"/><text x="72" y="42">Stream</text><text class="sm-sub" x="72" y="60">tokens arrive</text></g>
+          <g class="sm-stage" data-stage="1"><rect x="160" y="16" width="128" height="60" rx="10"/><text x="224" y="42">Hold back</text><text class="sm-sub" x="224" y="60">could be a leak</text></g>
+          <g class="sm-stage" data-stage="2"><rect x="312" y="16" width="128" height="60" rx="10"/><text x="376" y="42">Parse</text><text class="sm-sub" x="376" y="60">[name(args)]</text></g>
+          <g class="sm-stage" data-stage="3"><rect x="464" y="16" width="128" height="60" rx="10"/><text x="528" y="42">ToolRegistry</text><text class="sm-sub" x="528" y="60">execute + confirm</text></g>
+          <g class="sm-stage" data-stage="4"><rect x="616" y="16" width="136" height="60" rx="10"/><text x="684" y="42">Continue</text><text class="sm-sub" x="684" y="60">same warm cache</text></g>
+        </svg>
+      </div>
+      <div class="sm-panes">
+        <div class="sm-pane"><h4>What the model emits</h4><div class="sm-raw" id="smRaw"></div></div>
+        <div class="sm-pane"><h4>What the chat shows</h4><div class="sm-screen" id="smScreen"></div></div>
+      </div>
+      <p class="sm-note" id="smNote" aria-live="polite"></p>
+    </div>
+    <figcaption>Leaked-call recovery, replayed. Orange text is held back and never painted. An ordinary answer fails the prefix check on its first chunk and streams live. The example question and note are made up.</figcaption>
+  </figure>
+
+  <p>Each of those steps had a bug in its first version, and each bug was found by watching the real model on the real app. The hold-back check initially held <em>any</em> answer that began with <code>[</code> for the entire turn, so a reply opening with a Markdown link or a bracketed aside never streamed at all. It now validates the text incrementally against the bracket-call shape and lets go as soon as the shape is impossible. Then LFM2.5 1.2B turned out to narrate on the same line as its call, <code>[create_reminder(…)]Creating a reminder…</code>, and the first version released the buffer the moment anything followed <code>)]</code>. The call streamed into the bubble as prose and was never executed. A complete call now keeps holding whatever follows it. On the MLX runtime (more on that below) the detokenizer can hand back a single <code>&lt;</code> as the first chunk after the model's reasoning, which didn't look like the start of <code>&lt;|tool_call_start|&gt;</code> to a check that only knew the whole literal, so streaming latched live and the markers leaked. The check now accepts any valid prefix of the marker.</p>
+
+  <p>Two design choices matter more than the parsing. The first is the round limit. A recovered call can produce a follow-up that is itself a leaked call, such as looking up a person and then their calendar, so the loop allows up to three rounds per turn. Each round must answer a <em>new</em> call, and a repeat stops it. When a round can't be recovered, the last reply is stripped of call syntax and shown, and it is never executed. Every round lands in LFM2.5's 4,096-token cache, so the cap is tight on purpose. It's a bounded tool loop and nothing like a retry, which matters because Atlas has an invariant against silent retries.</p>
+
+  <p>The second is how a recovered exchange is stored. LFM2.5's own chat template has a bug where it mangles <code>tool_calls</code> and empty <code>content</code> fields when it rebuilds its history. So Atlas persists the recovered call and result as an ordinary tool message rendered as plain <code>[Tool result: …]</code> text. On a cold rebuild the model sees readable text, and nothing shaped like native tool-call JSON ever reaches the broken template path.</p>
+
+  <p>It works, with honest limits. On the per-model smoke matrix, 2 of 6 sampled 1.2B runs leaked their call and both were recovered. The 1.2B still almost never calls an act-tool on its own. Asked to create a reminder, it replies "please confirm so I can create it" and waits, which is a polite way of scoring zero on action recall. The 2.6B passes every probe in the matrix, alongside all three Gemma bundles. The small one is useful anyway, because Atlas retrieves before it generates and puts the excerpts in front of the model whether it asks for them or not. That design is the subject of the <a href="atlas-retrieve-then-generate.html">next post</a>.</p>
+
+  <!-- IMAGE SLOT: macOS chat with LFM2.5 2.6B showing a recovered tool row ("Searched your notes") above a grounded answer (docs/blog/images/atlas-leak-recovered.png) -->
+
+  <h2>Reasoning needs a budget</h2>
+
+  <p>LFM2.5 ships in Instruct and Thinking checkpoints. The Thinking ones emitted nothing at all in Atlas: no reasoning, no answer, an empty bubble. They need LiteRT-LM's native <code>ThinkingConfig</code> attached to every send, and once it is, the reasoning doesn't arrive as inline <code>&lt;think&gt;</code> tags the way some models do it. It streams on a separate native <code>"thought"</code> channel, which my tag-based splitter couldn't see. Atlas now reads that channel directly into a collapsible reasoning row.</p>
+
+  <p>The config also needs a token budget. Unbounded, a small model can reason until it has filled a 4,096-token window and never write an answer. A week later the same class of bug hit Gemma on a 6 GB iPhone, where every question got "No answer was generated." The Gemma manifest entries prepended Gemma's think token to the system prompt, which switches reasoning on, but didn't attach the native config, which is where the budget lives. So reasoning ran unbounded every turn. Since then the two flags are checked as a pair by a manifest test that runs in CI without any model on disk.</p>
+
+  <p>The error message turned out to be a diagnostic. Atlas says "ran out of thinking budget" only when reasoning streamed and the answer channel never fired. If the user sees the generic "No answer was generated" instead, the stream produced no events at all, and that points at a missing or wrong native config rather than a model that thought too long.</p>
+
+  <p>Even a bounded budget can be wrong. I raised the LFM2.5 Thinking budget from 512 to 1,024 tokens, which on iOS Metal equalled the whole 1,024-token GPU window and brought back the empty turns. The fix was to stop trusting the manifest number on its own. <code>effectiveThinkingBudget</code> clamps it to half of the window the engine actually opened with, and re-applies the clamp when the window has to degrade, so an answer always has room.</p>
+
+  <h2>A bigger window that produced nothing</h2>
+
+  <p>My development Mac has 48 GB of memory, and LFM2.5 was capped at a 4,096-token window while Gemma got 8,192 on the same machine. The obvious experiment was to give LFM2.5 2.6B the bigger window on macOS. In LiteRT-LM the window is a runtime knob that sizes the KV cache, so nothing about the exported graph stops you. It built, the full 1,190-test suite passed, and the engine came up without complaint.</p>
+
+  <p>Then I ran the real groundedness smoke test against the real bundle at 8,192 tokens, and every turn came back empty.</p>
+
+  <figure class="sm-fig" id="smWindow">
+    <div class="sm-panel sm-scroll">
+      <svg viewBox="0 0 760 250" role="img" aria-label="At an 8,192-token window, LFM2.5 2.6B showed normal health metrics, engine created, about 1.7 seconds to first token and about 77 tokens per second, yet all 11 turns produced 0 answer characters">
+        <text class="sm-title" x="10" y="22">What the logs said was fine</text>
+        <g class="sm-tile"><rect x="10" y="36" width="200" height="56" rx="10"/><text class="sm-k" x="24" y="56">Engine creation</text><text class="sm-v" x="24" y="82">created</text><text class="sm-ok" x="196" y="56" text-anchor="end">ok</text></g>
+        <g class="sm-tile"><rect x="10" y="100" width="200" height="56" rx="10"/><text class="sm-k" x="24" y="120">Time to first token</text><text class="sm-v" x="24" y="146">~1.7 s</text><text class="sm-ok" x="196" y="120" text-anchor="end">ok</text></g>
+        <g class="sm-tile"><rect x="10" y="164" width="200" height="56" rx="10"/><text class="sm-k" x="24" y="184">Decode speed</text><text class="sm-v" x="24" y="210">~77 tok/s</text><text class="sm-ok" x="196" y="184" text-anchor="end">ok</text></g>
+        <text class="sm-title" x="250" y="22">Answer characters per turn, window 8,192</text>
+        <line class="sm-base" x1="250" y1="196" x2="750" y2="196"/>
+        <g id="smTurns"></g>
+        <text class="sm-axis" x="250" y="240">Each dashed outline is room for an answer. Each turn wrote</text>
+        <text class="sm-tally" id="smTally" x="750" y="240" text-anchor="end">0 / 11 turns answered</text>
+      </svg>
+    </div>
+    <figcaption>The rejected 8,192-token experiment on LFM2.5 2.6B: normal-looking speed metrics and zero characters on all 11 turns of the smoke test.</figcaption>
+  </figure>
+
+  <p>The model was never trained on positions past 4,096. Running past its trained length didn't make it a bit worse. It made it fail silently on every turn while the speed metrics looked healthy. I reverted the change and left a comment on the manifest's <code>maxContextTokens</code> field with the evidence (<code>agent.turn.chars: 0</code>, 11 of 11 turns), so the next person who has a big Mac and the same idea doesn't have to rediscover it. For this family the fix for running out of room is shorter history inside 4,096, not a bigger window.</p>
+
+  <p>That experiment is also why the manifest carries per-model limits now. Before LFM2.5, the window was purely a function of device memory: 8,192 on a 16 GB machine, less on smaller ones. On a high-memory device Atlas had been asking LFM2.5 for a KV cache bigger than the bundle supports. Each entry now has its own ceiling, and memory tiers can only lower it.</p>
+
+  <h2>The bug my desk can't reproduce</h2>
+
+  <p>Adding a second family also flushed out a Gemma bug. On my iPhone 14 Pro, every Gemma bundle (E2B, E4B and 12B) started replying with nothing but <code>&lt;pad&gt;</code> tokens. On macOS it never happened, across five different prompt shapes. The file hashes matched the manifest, and nothing in Atlas's Swift code produces or mentions <code>&lt;pad&gt;</code>, so it was coming out of the native decoder.</p>
+
+  <p>The reason the Mac can't reproduce it is buried in a log line. On macOS the runtime can't load its WebGPU sampler library and quietly falls back to a sampler written against the C API. My Mac never runs the sampler the iPhone uses. The leading suspect is speculative decoding: only Gemma 4 ships a multi-token-prediction drafter, and a bad speculative draw surfacing as a raw vocabulary token would match a symptom that tracks the Gemma family exactly. I added two environment switches to bisect it on the device, one to turn the drafter off and one to turn constrained decoding off. I also added a defensive strip, so the bug now shows "No answer was generated" instead of painting a bubble full of padding. As I write this it is still open, and it's the reason I now treat "works on my Mac" as weak evidence for anything that touches the GPU.</p>
+
+  <h2>A second runtime for the iPhone</h2>
+
+  <p>The 2.6B is the LFM2.5 that answers well, and on iPhone it couldn't use the GPU. iOS Metal fails at engine creation for that bundle: the delegate can't lower the hybrid model's convolution-state operations, the same family of problem as #3129, and nothing in the app can change that. The CPU fallback works, but its cold start is the slowest in the whole manifest.</p>
+
+  <p>So Atlas got a second on-device runtime. Apple's MLX runs Liquid's own 4-bit MLX export of the 2.6B, a single 1.58 GB file, directly on the iPhone's GPU. On my Mac it decodes at about 77 tokens per second with about two seconds to the first token. MLX meant a new <code>MLXService</code> behind the same backend protocol, with the same rules: warm KV-cache reuse per conversation, one choke point for tools, and the same leaked-call recovery, because LFM2.5's MLX checkpoint leaks its calls exactly the way the LiteRT one does. I moved the shared parsing into one file so both backends run the same code.</p>
+
+  <p>MLX also taught me what jetsam feels like. Downloading the MLX 2.6B on a phone killed the app at exactly 100%, with no logs at all. Finishing a download auto-selects the new model, which warms it immediately, and MLX holds its weights fully resident in unified memory. On a phone that's too small, that is an out-of-memory kill by the OS, with no Swift error to catch and nothing written anywhere. None of the MLX entries had a memory floor. They have one now (3 GiB for the 1.2B, 5 GiB for the 2.6B and 24 GiB for the 8B), and a test fails if any future MLX entry ships without one. The phone-sized 4-bit variant asks for 4 GiB.</p>
+
+  <p>I nearly set the 2.6B's floor at 7 GiB, which would have excluded every 6 GB iPhone. That number assumed the KV cache rivals the weights. LFM2 is a hybrid, though: only 8 of its 30 layers are attention layers, and the other 22 are convolutions with a three-element cache. At 8 KV heads of 64 dimensions, the cache is 128 MiB at 8,192 tokens against 2.67 GiB of weights. Working the arithmetic out from the architecture was worth a whole device class.</p>
+
+  <p>One more MLX lesson arrived during a long eval run. MLX keeps a buffer-recycling cache whose default limit is close to all of the GPU's working memory. Atlas never bounded it, so memory grew turn after turn until the OS killed the process about 47 turns in, on a 48 GB Mac. On a phone that would be a jetsam kill in the middle of a chat. One line at warmup sets the cache limit to 64 MiB, which follows MLX's own guidance for iOS.</p>
+
+  <h2>The quirks, in one table</h2>
+
+  <table>
+    <thead><tr><th>Symptom</th><th>Model</th><th>Cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td>Native crash, logits shape</td><td>LFM2.5</td><td>Repetition penalty in per-send options</td><td><code>disableRepetitionPenalty</code></td></tr>
+      <tr><td>Tool call shown as text</td><td>LFM2.5</td><td>Own bracket syntax, no <code>tool_calls</code> field</td><td>Hold back, parse, execute, continue</td></tr>
+      <tr><td>Empty bubble</td><td>LFM2.5 Thinking</td><td>No <code>ThinkingConfig</code> attached</td><td>Attach it, with a budget</td></tr>
+      <tr><td>"No answer was generated"</td><td>Gemma 4 on iPhone</td><td>Think token without a budget</td><td>Flags checked as a pair</td></tr>
+      <tr><td>Empty turns on iOS</td><td>LFM2.5 Thinking</td><td>Budget equal to the GPU window</td><td>Clamp to half the live window</td></tr>
+      <tr><td>Zero characters, every turn</td><td>LFM2.5 at 8,192</td><td>Past trained context length</td><td>Reverted, comment in manifest</td></tr>
+      <tr><td><code>&lt;pad&gt;</code> replies</td><td>Gemma 4 on iPhone</td><td>Suspected speculative drafter</td><td>Open; bisect switches + strip</td></tr>
+      <tr><td>Killed at 100% download</td><td>MLX 2.6B</td><td>No memory floor, instant warmup</td><td>Per-entry RAM gate + test</td></tr>
+    </tbody>
+  </table>
+
+  <div class="playground-callout">
+    <p class="pc-label">Update, late October</p>
+    <p>LFM3 1.7B arrived on October 27, and the work above paid off quickly. A community LiteRT conversion loads on the runtime version I pin. It tolerates the repetition penalty that crashes LFM2.5, it thinks by default (without a budget, one follow-up took 352 seconds and produced no answer), and it leaks its tool calls as XML instead of brackets. Supporting the XML shape was one more parser behind the same recovery path. Later I also made the round cap adaptive: when the prefetched excerpts are already confident, one extra search is allowed instead of three, because LFM3 otherwise spent every round on a new paraphrase of the same question at roughly eight seconds of reasoning each.</p>
+  </div>
+
+  <h2>What I'd tell myself in August</h2>
+
+  <p>A model's file format being supported by your runtime says very little about whether the model speaks the runtime's protocol. Tool calling, reasoning output and sampling options are all places where a model family's training meets a runtime's assumptions, and each one failed differently: one crashed, one leaked text, one went silent.</p>
+
+  <p>When something is wrong, the most useful thing to have is a minimal client that works. The upstream CLI found the repetition-penalty crash in an afternoon after a day of my own theories. A per-model smoke matrix (a plain answer, a thinking probe and a real act-tool call for every bundle in the manifest, about two minutes for five models) now runs before any model change ships, and it's the only reason I trust the table above.</p>
+
+  <p>And the limits a model was trained with are part of its contract, even when the runtime will happily let you exceed them. The window experiment didn't produce slightly worse answers that I could have weighed against longer conversations. It produced none, while every metric I was watching looked normal.</p>
+
+  <div class="playground-callout">
+    <p class="pc-label">Try Atlas</p>
+    <p><a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=iphone">Get Atlas for iPhone &amp; iPad</a> or <a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=mac">get Atlas for Mac</a> on the App Store.</p>
+  </div>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://github.com/google-ai-edge/LiteRT-LM">LiteRT-LM</a>: Google's on-device LLM runtime, which Atlas pins at a fixed version. Its native agent loop looks for a structured <code>tool_calls</code> field in the model's output, which is why a model trained on a different call syntax needs recovery on the app side.</li>
+    <li><a href="https://github.com/google-ai-edge/LiteRT-LM/issues/3129">LiteRT-LM issue #3129</a>: The iOS Metal problem behind both the GPU-export detour and the 2.6B's failed engine creation on iPhone. It was a real issue, and for the crash in this post it was the wrong one.</li>
+    <li><a href="https://huggingface.co/LiquidAI">Liquid AI on Hugging Face</a>: Home of the LFM2.5 and LFM3 checkpoints, including the MLX 4-bit export Atlas runs on the iPhone GPU. The LFM models ship under the LFM Open License, which Atlas shows before download.</li>
+    <li><a href="https://github.com/ml-explore/mlx-swift">MLX Swift</a>: Apple's array framework for Apple silicon, Atlas's second on-device runtime. It keeps weights resident in unified memory, which is why every MLX model in Atlas has a memory floor.</li>
+    <li><a href="https://github.com/ml-explore/mlx-swift-lm">mlx-swift-lm</a>: The language-model layer on top of MLX Swift that <code>MLXService</code> builds on, including the buffer cache whose default limit had to be lowered for phones.</li>
+    <li><a href="https://arxiv.org/abs/2104.09864">RoFormer: rotary position embedding</a>: The position-encoding scheme used by most current small models. A model sees positions only up to the length it was trained on, and the 8,192-token experiment above is what going past that looked like.</li>
+    <li><a href="https://developer.apple.com/documentation/xcode/identifying-high-memory-use-with-jetsam-event-reports">Identifying high-memory use with jetsam event reports</a>: Apple's guide to the out-of-memory kills that leave no Swift error behind. The download that died at 100% was one of these.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script>
+(() => {
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const onView = (el, fn) => {
+    if (reduced || !('IntersectionObserver' in window)) return fn(true);
+    const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) { io.disconnect(); fn(false); } }, { threshold: 0.35 });
+    io.observe(el);
+  };
+
+  /* Figure 1: leaked tool-call recovery */
+  const fig = document.getElementById('smLeak');
+  const raw = document.getElementById('smRaw');
+  const screen = document.getElementById('smScreen');
+  const note = document.getElementById('smNote');
+  const stages = [...fig.querySelectorAll('.sm-stage')];
+  const buttons = [...fig.querySelectorAll('[data-mode]')];
+  const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const answer = ['Your dentist', ' appointment is', ' on Thursday', ' at 09:30,', ' according to', ' your note', ' "Health admin".'];
+  const scripts = {
+    leak: [
+      { stage: 0, note: 'The model starts writing.' },
+      ...['[', 'search_knowledge', '(query="', 'dentist appointment', '")]'].map(t => ({ tok: t, held: true, stage: 1, note: 'Starts with "[" and still fits [name(args)]: hold, paint nothing.' })),
+      ...[' Let me', ' look that', ' up.'].map(t => ({ tok: t, held: true, stage: 1, note: 'A complete call keeps holding what follows, so the narration never streams as prose.' })),
+      { stage: 2, wait: 700, parsed: true, note: 'Stream ended. parseLeakedToolCall: name = search_knowledge, query = "dentist appointment".' },
+      { stage: 3, wait: 900, tool: true, note: 'Executed through ToolRegistry.execute, the same choke point as a native call. The chat shows a real tool row.' },
+      { stage: 4, wait: 700, result: true, note: 'The result goes back as a continuation on the same conversation: one short prefill on a warm KV cache.' },
+      ...answer.map(t => ({ tok: t, live: true, stage: 4, note: 'The grounded answer streams normally.' })),
+      { stage: -1, done: true, note: 'One recovered round. Up to three per turn, each must be a new call, never a retry.' }
+    ],
+    plain: [
+      { stage: 0, note: 'The model starts writing.' },
+      ...answer.map((t, i) => ({ tok: t, live: true, stage: 0, note: i === 0 ? '"Your dentist" can never become [name(args)]: the prefix check fails on the first chunk and the text streams live.' : 'No hold-back, no parsing: the common case pays nothing.' })),
+      { stage: -1, done: true, plainDone: true, note: 'Stages two to five never ran.' }
+    ]
+  };
+
+  let mode = 'leak', timer = null;
+  function reset() {
+    clearTimeout(timer);
+    raw.innerHTML = ''; screen.innerHTML = '<span class="sm-empty">Nothing painted yet.</span>'; note.textContent = '';
+    stages.forEach(s => s.classList.remove('on', 'done', 'skip'));
+  }
+  function light(i) {
+    stages.forEach((s, j) => { s.classList.toggle('on', j === i); if (j < i) s.classList.add('done'); });
+  }
+  let painted = '', toolRow = '';
+  function paint(cursor) {
+    screen.innerHTML = (toolRow || '') + (painted ? esc(painted) : (toolRow ? '' : '<span class="sm-empty">Nothing painted yet.</span>')) + (cursor ? '<span class="sm-cursor"></span>' : '');
+  }
+  function apply(step) {
+    if (step.stage >= 0) light(step.stage);
+    if (step.note) note.textContent = step.note;
+    if (step.tok) {
+      const span = document.createElement('span');
+      span.className = 'sm-tok ' + (step.held ? 'held' : 'live');
+      span.textContent = step.tok;
+      raw.appendChild(span);
+      if (step.live) { painted += step.tok; paint(true); }
+    }
+    if (step.parsed) {
+      const br = document.createElement('div');
+      br.className = 'sm-tok result';
+      br.textContent = '→ ToolCall(search_knowledge, {query: "dentist appointment"})';
+      raw.appendChild(br);
+    }
+    if (step.tool) { toolRow = '<div class="sm-toolrow"><i></i>search_knowledge · dentist appointment</div><br>'; paint(false); }
+    if (step.result) {
+      const r = document.createElement('div');
+      r.className = 'sm-tok result';
+      r.textContent = '[Tool result: 2 excerpts, "Health admin" …]';
+      raw.appendChild(r);
+      raw.appendChild(document.createElement('br'));
+    }
+    if (step.done) {
+      stages.forEach(s => s.classList.remove('on'));
+      if (step.plainDone) stages.forEach((s, j) => { if (j > 0) s.classList.add('skip'); else s.classList.add('done'); });
+      else stages.forEach(s => s.classList.add('done'));
+      paint(false);
+    }
+  }
+  function run(instant) {
+    reset(); painted = ''; toolRow = '';
+    const steps = scripts[mode];
+    if (instant) { steps.forEach(apply); return; }
+    let i = 0;
+    const next = () => {
+      if (i >= steps.length) return;
+      const step = steps[i++];
+      apply(step);
+      const nxt = steps[i];
+      timer = setTimeout(next, nxt && nxt.wait ? nxt.wait : (step.tok ? 260 : 600));
+    };
+    next();
+  }
+  buttons.forEach(b => b.addEventListener('click', () => {
+    mode = b.dataset.mode;
+    buttons.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    run(reduced);
+  }));
+  fig.querySelector('.sm-replay').addEventListener('click', () => run(reduced));
+  reset(); painted = ''; toolRow = '';
+  onView(fig, instant => run(instant));
+
+  /* Figure 2: eleven empty turns */
+  const turns = document.getElementById('smTurns');
+  const tally = document.getElementById('smTally');
+  const NS = 'http://www.w3.org/2000/svg';
+  const zeros = [];
+  for (let i = 0; i < 11; i++) {
+    const x = 262 + i * 44;
+    const r = document.createElementNS(NS, 'rect');
+    r.setAttribute('class', 'sm-track'); r.setAttribute('x', x); r.setAttribute('y', 46); r.setAttribute('width', 30); r.setAttribute('height', 150); r.setAttribute('rx', 4);
+    const z = document.createElementNS(NS, 'text');
+    z.setAttribute('class', 'sm-zero'); z.setAttribute('x', x + 15); z.setAttribute('y', 188); z.textContent = '0';
+    const l = document.createElementNS(NS, 'text');
+    l.setAttribute('class', 'sm-turn'); l.setAttribute('x', x + 15); l.setAttribute('y', 214); l.textContent = 'T' + (i + 1);
+    turns.append(r, z, l); zeros.push(z);
+  }
+  const win = document.getElementById('smWindow');
+  onView(win, instant => {
+    if (instant) { zeros.forEach(z => z.classList.add('in')); tally.textContent = '0 / 11 turns answered'; return; }
+    tally.textContent = '';
+    zeros.forEach((z, i) => setTimeout(() => {
+      z.classList.add('in');
+      tally.textContent = `turn ${i + 1}: 0 chars`;
+      if (i === zeros.length - 1) setTimeout(() => { tally.textContent = '0 / 11 turns answered'; }, 500);
+    }, 350 + i * 280));
+  });
+})();
+</script>
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

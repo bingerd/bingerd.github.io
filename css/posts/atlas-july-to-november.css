@@ -1,0 +1,54 @@
+/* Figures for docs/blog/2026/atlas-july-to-november.html */
+figure.hb-fig { margin: 2.2rem 0; }
+.hb-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.hb-scroll svg { width: 100%; min-width: 600px; height: auto; display: block; font-family: var(--font-body); }
+figure.hb-fig figcaption { margin-top: .6rem; font-size: .85rem; color: var(--muted); text-align: center; }
+
+/* Timeline */
+.hb-grid { stroke: var(--border); stroke-width: 1; }
+.hb-month { fill: var(--muted); font-size: 12px; font-family: var(--font-mono); text-anchor: middle; }
+.hb-lane-label { fill: var(--muted); font-size: 12.5px; text-anchor: end; transition: fill .2s; }
+.hb-rel line { stroke: var(--accent-2); stroke-width: 1.6; }
+.hb-rel circle { fill: var(--accent-2); }
+.hb-rel-t { fill: var(--accent-2); font-size: 11px; font-family: var(--font-mono); }
+.hb-rel-t.hb-end { text-anchor: end; }
+.hb-hit { fill: transparent; transition: fill .2s; }
+.hb-bar { fill: color-mix(in srgb, var(--accent) 55%, transparent); stroke: var(--accent); stroke-width: 1.2; transition: fill .2s; }
+.hb-lane { cursor: pointer; outline: none; }
+.hb-lane:hover .hb-hit, .hb-lane:focus-visible .hb-hit, .hb-lane.on .hb-hit { fill: color-mix(in srgb, var(--fg) 6%, transparent); }
+.hb-lane:hover .hb-bar, .hb-lane:focus-visible .hb-bar, .hb-lane.on .hb-bar { fill: var(--accent); }
+.hb-lane:hover .hb-lane-label, .hb-lane:focus-visible .hb-lane-label, .hb-lane.on .hb-lane-label { fill: var(--fg); font-weight: 600; }
+.hb-lane:focus-visible .hb-hit { stroke: var(--accent); stroke-width: 1.5; }
+.hb-today { stroke: var(--fg); stroke-width: 1.2; stroke-dasharray: 2 4; }
+.hb-today-t { fill: var(--fg); font-size: 11px; font-family: var(--font-mono); text-anchor: end; }
+.hb-readout { min-height: 3.2rem; margin: .4rem auto 0; max-width: 34rem; text-align: center; font-size: .92rem; color: var(--muted); }
+.hb-readout b { color: var(--fg); font-weight: 600; }
+.hb-readout a { font-weight: 600; }
+
+/* Timeline entrance: bars grow from their start, releases drop in */
+.hb-anim .hb-bar { transform-box: fill-box; transform-origin: left center; transform: scaleX(0); }
+.hb-anim .hb-rel { opacity: 0; transform: translateY(-6px); }
+.hb-anim .hb-today { opacity: 0; }
+.hb-anim.hb-in .hb-bar { transform: scaleX(1); transition: transform .9s cubic-bezier(.2,.7,.2,1) calc(.35s + var(--i) * .14s); }
+.hb-anim.hb-in .hb-lane .hb-dot { transition-duration: .4s; }
+.hb-anim.hb-in .hb-rel { opacity: 1; transform: none; transition: opacity .35s ease calc(var(--i) * .06s), transform .35s ease calc(var(--i) * .06s); }
+.hb-anim.hb-in .hb-today { opacity: 1; transition: opacity .6s ease 1.4s; }
+
+/* Then vs now */
+.hb-frame { fill: var(--surface); stroke: var(--border); }
+.hb-ptitle { fill: var(--fg); font-family: var(--font-display); font-size: 22px; text-anchor: middle; }
+.hb-row { fill: var(--muted); font-size: 11px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .08em; }
+.hb-box { fill: var(--bg); stroke: var(--border); stroke-width: 1.2; }
+.hb-run { stroke: var(--accent); }
+.hb-add { stroke: var(--accent-3); fill: color-mix(in srgb, var(--accent-3) 10%, transparent); }
+.hb-remote { stroke: var(--muted); stroke-dasharray: 5 4; fill: transparent; }
+.hb-d1 { stroke: var(--accent-2); fill: color-mix(in srgb, var(--accent-2) 12%, transparent); }
+.hb-bt { fill: var(--fg); font-size: 12px; text-anchor: middle; }
+.hb-small { font-size: 11px; }
+.hb-hl { fill: var(--accent-3); font-weight: 600; }
+.hb-anim .hb-new { opacity: 0; transform: translateY(8px); }
+.hb-anim.hb-in .hb-new { opacity: 1; transform: none; transition: opacity .5s ease calc(.3s + var(--i) * .18s), transform .5s ease calc(.3s + var(--i) * .18s); }
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-anim .hb-bar, .hb-anim .hb-rel, .hb-anim .hb-today, .hb-anim .hb-new { opacity: 1 !important; transform: none !important; transition: none !important; }
+}

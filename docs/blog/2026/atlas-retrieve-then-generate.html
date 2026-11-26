@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Retrieve, Then Generate: Closing the Speed Gap on a Phone — Bing Tan</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Another on-device chat app felt faster than Atlas on the same iPhone. The decoder wasn't the problem. The shape of each turn was, and fixing it meant rethinking when the model gets to search." />
+  <meta property="og:title" content="Retrieve, Then Generate: Closing the Speed Gap on a Phone" />
+  <meta property="og:description" content="Turn shape, KV-cache keys and LLM-free pre-retrieval: how Atlas stopped paying for a cold engine and an extra generation on nearly every chat turn." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://bngrd.com/docs/blog/2026/atlas-retrieve-then-generate.html" />
+  <meta property="og:image" content="https://bngrd.com/og-image.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <link rel="canonical" href="https://bngrd.com/docs/blog/2026/atlas-retrieve-then-generate.html" />
+  <meta name="theme-color" content="#0c0b0a" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f3eee4" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="../../../favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="../../../apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="../../../css/blog.css" />
+  <link rel="stylesheet" href="../../../css/posts/atlas-retrieve-then-generate.css" />
+</head>
+<body data-theme="dark">
+<script src="../../../js/theme.js"></script>
+
+<nav aria-label="Main navigation">
+  <div class="logo">BING TAN</div>
+  <ul>
+    <li><a href="../../../index.html">Home</a></li>
+    <li><a href="../../../index.html#blog">Writing</a></li>
+    <li><button class="toggle" onclick="toggleTheme()" aria-label="Toggle dark/light theme">Theme</button></li>
+  </ul>
+</nav>
+
+<main>
+  <h1>Retrieve, Then Generate: Closing the Speed Gap on a Phone</h1>
+  <p><em>September 2026 · 13 min read</em></p>
+
+  <p>In September I installed Solair, another private, on-device AI app for iPhone, on the same iPhone 14 Pro I test Atlas on. I asked both apps similar questions. Solair started answering almost immediately, while Atlas sat there thinking. Both apps run a small language model locally on a 6 GB phone. My first guess was that the other runtime simply decoded faster, so I measured that first. The two decoders were close: Gemma 4 E2B on LiteRT-LM produced about 55 tokens per second, and Qwen 3.5 2B on MLX about 61. A 10% difference in decode speed doesn't make one app feel instant and the other one sluggish.</p>
+
+  <p>The difference was in what each app asked the model to do on every turn. This post is about that, which I've started calling the <em>turn shape</em>. It covers the two weeks it took to fix it, a regex I wrote and then deleted, and the design Atlas ships now for every model on every backend.</p>
+
+  <div class="playground-callout series-box">
+    <p class="pc-label">Atlas series</p>
+    <ol>
+      <li><a href="atlas-context-engineering.html">Fitting a Second Brain Into 8,192 Tokens</a> (the July original)</li>
+      <li><a href="atlas-small-models.html">Taming Small Models That Don't Speak Your Tool Protocol</a></li>
+      <li><strong>Retrieve, Then Generate: Closing the Speed Gap on a Phone</strong></li>
+      <li><a href="atlas-network-boundary.html">Letting the Network In Without Letting the Data Out</a></li>
+      <li><a href="atlas-ears-and-eyes.html">Ears and Eyes on a Phone: Voice and Vision in Atlas</a></li>
+      <li><a href="atlas-experiments-not-shipped.html">The Experiments I Didn't Ship</a></li>
+      <li><a href="atlas-july-to-november.html">Atlas, July to November</a></li>
+    </ol>
+  </div>
+
+  <h2>What a turn used to look like</h2>
+
+  <p>A chat app like Solair sends your message to the model and streams back the reply in one generation. Atlas is a second brain, so most questions are about your own notes, mail and calendar, and in the summer the model fetched that context itself through tools. The prompt Atlas sent was about 1,350 tokens before you typed a word, and most of that was the JSON schemas of twelve or thirteen tools. A typical question then went through these steps:</p>
+
+  <ol>
+    <li>Prefill the system prompt and all those tool declarations.</li>
+    <li>Let the model think, then emit a <code>search_knowledge</code> call.</li>
+    <li>Run the search, which takes milliseconds because retrieval never touches the LLM (that's invariant #4 from the <a href="atlas-context-engineering.html">first post</a>).</li>
+    <li>Prefill the search results back into the conversation.</li>
+    <li>Let the model think again, and only then start the answer you can see.</li>
+  </ol>
+
+  <p>That adds up to two generations and two prefills for each visible answer, plus a token reserve set aside for the tool round, which on a 4,096-token window leaves very little room for anything else. The worst part was a step I hadn't drawn on any diagram because it wasn't supposed to happen at all.</p>
+
+  <h2>The cost I couldn't see: backgrounding</h2>
+
+  <p>Atlas had a setting called "Free model memory in background", on by default. When you switched apps, locked the phone or pulled down a notification, Atlas tore down the inference engine to be a good memory citizen. That sounds reasonable until you count how often a normal person backgrounds an app on iOS. In practice it happened between nearly every pair of turns. Each return to the app then paid for a cold engine rebuild <em>and</em> a full prefill of the system prompt, because the KV cache that held it was gone with the engine.</p>
+
+  <p>The KV-cache discipline from the July post (one conversation per chat, prefill only the new message) was correct, and also mostly theoretical, because the cache rarely survived long enough to be reused. Solair keeps its model resident. Once I put the two turns next to each other, the gap was easy to explain:</p>
+
+  <figure class="rtg-fig rtg-panel" id="rtgShape">
+    <div class="rtg-top">
+      <button type="button" id="rtgReplay" aria-label="Replay the timeline">Replay</button>
+      <span class="rtg-clock" id="rtgClock" aria-hidden="true"></span>
+    </div>
+    <div class="rtg-scroll">
+      <svg viewBox="0 0 760 330" role="img" aria-labelledby="rtgShapeTitle rtgShapeDesc">
+        <title id="rtgShapeTitle">Three chat turn shapes compared</title>
+        <desc id="rtgShapeDesc">Top: the summer turn, which starts with a cold engine rebuild, prefills the prompt with all tool schemas, thinks, calls search, prefills the results, thinks again and only then answers. Middle: retrieve-then-generate, where LLM-free retrieval runs first and one generation answers from the injected excerpts. Bottom: the gated turn that shipped, which keeps a fixed tool set so the cache stays warm, injects excerpts only when retrieval is confident, and lets capable models search when they decide to. The time to first visible token comes earliest in the bottom two lanes.</desc>
+        <g id="rtgLanes"></g>
+      </svg>
+    </div>
+    <div class="rtg-legend" aria-hidden="true">
+      <span><i class="k-cold"></i>engine rebuild</span>
+      <span><i class="k-prefill"></i>prefill</span>
+      <span><i class="k-think"></i>hidden thinking</span>
+      <span><i class="k-tool"></i>tool call / LLM-free retrieval</span>
+      <span><i class="k-free"></i>optional model-chosen search</span>
+      <span><i class="k-answer"></i>visible answer</span>
+    </div>
+    <figcaption>The order of phases is real, but the widths are schematic and not measured durations. The marker is the first token you actually see. Every block to its left is time you spend looking at a spinner.</figcaption>
+  </figure>
+
+  <p>The fix for that was a one-line policy change with a paragraph of justification. Every LiteRT backend is now exempt from the routine background suspend. A real memory-pressure signal from iOS still unloads the model unconditionally, because the OS outranks my latency budget. The "free memory" toggle still exists, but it now only governs MLX models, and the label in Settings says so. The policy lives in a small function, <code>LLMBackgroundSuspendPolicy.shouldSuspendOnRoutineBackground</code>, so it is unit-testable without building the whole engine.</p>
+
+  <h2>Retrieve, then generate</h2>
+
+  <p>With the model resident, the second generation was the next biggest cost, so I removed it. Atlas already had everything it needed to search without the model: hybrid BM25 and vector retrieval, a regex calendar parser, and an excerpt formatter. I made the excerpt formatter shared, so the <code>search_knowledge</code> tool and a new <code>Pipeline.preRetrieve</code> produce byte-identical output. Then the default chat turn became:</p>
+
+  <ol>
+    <li>Run the search before the model sees anything, which is LLM-free and takes milliseconds.</li>
+    <li>Put the excerpts, together with a date line, <em>inside the pending user message</em>.</li>
+    <li>Generate once.</li>
+  </ol>
+
+  <p>The location of the excerpts in step 2 matters more than it looks. Atlas used to inject context as extra <code>.system</code> messages in the history. On a warm LiteRT turn the runtime already holds the earlier conversation in its KV cache, so Atlas only sends the newest message, <code>messages.last</code>. Anything I injected anywhere else was invisible on every warm turn. I found out later that the graph context, the self-model and the learned principles had been silently invisible that way for weeks. The pending user message is the one place every turn is guaranteed to deliver, so that's where the context rides.</p>
+
+  <p>The UI didn't need to change. <code>agentQuery</code> synthesizes the same <code>search_knowledge</code> events the tool used to emit, so the tool row, the sources pill, the citations and the "found nothing" row (invariant #9) all render exactly as before. The default turn carried no tools at all, which also meant no tool-round reserve in the token budget.</p>
+
+  <p>The quality numbers moved in a direction I didn't expect. On LFM2.5 1.2B, the abstention score (how often the model correctly says it doesn't know, instead of inventing something) rose from 0.07 to 0.79, with groundedness at 0.94 and lookup recall at 1.00. Small models are bad at deciding to search and good at reading what's in front of them. Putting the evidence in front of them made them more honest.</p>
+
+  <h2>A regex that decided which tools to carry</h2>
+
+  <p>Some turns still need tools: "remind me to call the plumber", "add lunch with my sister on Friday", "how did I sleep this week". So I wrote <code>TurnIntentGate</code>, an LLM-free regex classifier in English and Dutch, that attached only the tool subset a turn needed. A reminder request got <code>create_reminder</code> and <code>list_reminders</code>, a mail question got <code>search_email</code> and <code>read_email_thread</code>, and a plain question got nothing.</p>
+
+  <p>It worked, and it shipped. Twelve days later I deleted it, because of the cache key.</p>
+
+  <p>A warm conversation can only be reused when the inputs that shaped its KV cache haven't changed. In Atlas that's a two-field struct, <code>ConversationCacheKey</code>: the system prompt and the sorted list of tool names. If either changes, the cached conversation is evicted and the next turn rebuilds cold. I'd learned this lesson once already in August, when the system prompt contained today's date. That line made the key change every midnight, so any conversation you resumed the next morning rebuilt from scratch. The date moved out of the system prompt and into the per-turn preface.</p>
+
+  <p>The intent gate repeated the same mistake with tools. Every time a turn needed a different subset than the turn before, the key flipped and the whole conversation was prefilled again. A gate I'd written to save latency was causing cold prefills of its own.</p>
+
+  <figure class="rtg-fig rtg-panel">
+    <div class="rtg-scroll">
+      <svg viewBox="0 0 760 370" class="rtg-keys" id="rtgKeys" role="img" aria-labelledby="rtgKeysTitle rtgKeysDesc">
+        <title id="rtgKeysTitle">How a changing tool set invalidates the KV cache</title>
+        <desc id="rtgKeysDesc">Four chat turns in two rows. In the regex-gate row the tool list changes between turns, so the cache key changes and turns two, three and four each rebuild cold. In the fixed-set row every turn carries the same tools plus search_knowledge, the key stays the same, and turns two to four reuse the warm cache.</desc>
+        <defs>
+          <marker id="rtgArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" class="rtg-arrowhead" />
+          </marker>
+        </defs>
+        <text x="16" y="28" class="rtg-row-t">Regex gate: tools chosen per turn</text>
+        <text x="16" y="46" class="rtg-row-s">key = hash(system prompt, sorted tool names)</text>
+        <g id="rtgRowA"></g>
+        <text x="16" y="208" class="rtg-row-t">Fixed set: the same tools on every turn</text>
+        <text x="16" y="226" class="rtg-row-s">the model decides whether to call them</text>
+        <g id="rtgRowB"></g>
+      </svg>
+    </div>
+    <figcaption>Each card is one turn of the same chat. A key change evicts the cached conversation, so the next turn prefills everything again. The labels say "cold" and "warm" as well, so the colors are never the only signal.</figcaption>
+  </figure>
+
+  <h2>Second thoughts: let the model search again</h2>
+
+  <p>Retrieve-then-generate was fast, but after living with it for a week I changed my mind about part of it. The excerpts were now in front of the model on <em>every</em> turn, including "what's 2 + 2?" and "thanks!". I started reading the models' hidden reasoning with the headless harness I'd built (<code>AtlasCLI ask</code>, which runs a full agent turn on the real index and captures the thinking), and a pattern showed up quickly:</p>
+
+  <ul>
+    <li><strong>Every turn opened with excerpt triage.</strong> On a networking question, Gemma E4B spent its first thoughts walking through excerpts about an ontology note and a coding model and deciding that neither was about network protocols. The 8B model, asked "What's 2+2?", reread the abstention rule to work out whether general knowledge was even allowed.</li>
+    <li><strong>The excerpts crowded out the right tool.</strong> For a mail question, the 8B saw a contact card plus two unrelated emails in its excerpts, concluded there was no such email and never called <code>search_email</code>. Gemma E4B saw the same excerpts and did call it.</li>
+    <li><strong>The model read the preface as the user talking</strong> ("The user gave some context… They provide some excerpts"), which makes sense, because it rode the user's message.</li>
+  </ul>
+
+  <p>So the always-on injection was itself a form of context bloat. I wrote a set of candidate designs and ran each of them against every LFM on both runtimes. I also gave myself one constraint up front: a single design for every model on every backend, with no per-model retrieval modes and no special case for the 4,096-token tier. I've seen what per-model branches do to a codebase over time.</p>
+
+  <p>The arms in the experiment were <code>inject</code> (always put the excerpts in), <code>agentic</code> (give the model the search tool and inject nothing), and <code>gated</code> (give the model the tool, and inject excerpts only when retrieval is confident). The bench had 16 lookup turns, 4 follow-ups, 6 questions that should be abstained on, and 10 "restraint" turns where the right move is not to search at all.</p>
+
+  <table>
+    <thead>
+      <tr><th>Model · runtime</th><th>Arm</th><th>Lookup</th><th>Follow-up</th><th>Abstain</th><th>Restraint</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>LFM2.5 1.2B · LiteRT</td><td>inject</td><td>13/16</td><td>2/4</td><td>5/6</td><td>1/10</td></tr>
+      <tr><td>LFM2.5 1.2B · LiteRT</td><td>gated</td><td>12/16</td><td>3/4</td><td>5/6</td><td>6/10</td></tr>
+      <tr><td>LFM2.5 1.2B · MLX</td><td>agentic</td><td>2/16</td><td>–</td><td>–</td><td>–</td></tr>
+      <tr><td>LFM2.5 1.2B · MLX</td><td>gated</td><td>12/16</td><td>4/4</td><td>3/6</td><td>9/10</td></tr>
+      <tr><td>LFM2.5 2.6B · LiteRT</td><td>agentic</td><td>16/16</td><td>3/4</td><td>5/6</td><td>10/10</td></tr>
+      <tr><td>LFM2.5 2.6B · LiteRT</td><td>gated</td><td>15/16</td><td>4/4</td><td>5/6</td><td>9/10</td></tr>
+      <tr><td>LFM2 8B-A1B · MLX</td><td>agentic</td><td>12/16</td><td>2/4</td><td>5/6</td><td>10/10</td></tr>
+      <tr><td>LFM2 8B-A1B · MLX</td><td>gated</td><td>13/16</td><td>2/4</td><td>6/6</td><td>9/10</td></tr>
+    </tbody>
+  </table>
+
+  <p>The table shows a dilemma. Agentic retrieval is the best arm on the capable models and close to useless on the 1.2B, which simply never calls a tool on either runtime (2 lookups out of 16). Always-on injection rescues the 1.2B's lookups and ruins its restraint (1 out of 10). The gated arm is within about one turn of the best arm everywhere, so with the "one design for all" constraint in place, it won.</p>
+
+  <h2>What ships now: the gated turn</h2>
+
+  <p>Since 24 September, every chat turn for every model works like this:</p>
+
+  <ul>
+    <li><strong>One fixed tool set on every turn.</strong> <code>Pipeline.chatTools()</code> provides the act, mail, health, ingest and remember tools that the providers allow, plus a per-turn <code>search_knowledge</code>. The set never changes between turns, so the cache key never flips. The model decides natively whether to call anything, and <code>TurnIntentGate</code> is gone.</li>
+    <li><strong>A prefetch runs LLM-free on every turn anyway.</strong> It uses the same code path as the tool, and the retrieval query carries the previous user message as well (we call that C3), so a follow-up like "and what's her email?" retrieves against the right person. That one change took the 1.2B's MLX follow-ups from 3/4 to 4/4, with plain concatenation and no pronoun list.</li>
+    <li><strong>Excerpts are only injected when the prefetch is confident</strong> (G1). That means a top semantic score of at least 0.35 together with a keyword match from FTS, or a semantic score of at least 0.5 on its own. There's no word list involved. "What's the capital of France?" scores 0.41 semantically with no keyword hit, so it gets nothing injected and the model answers from general knowledge. "Hoi, hoe gaat het?" (Dutch for "hi, how are you?") scores 0.38 with no keyword hit and also gets nothing.</li>
+    <li><strong>The preface is lean</strong>: a date line, a "Reply in &lt;language&gt;." line, and the excerpts if the gate passed. The rule for answering date questions moved into the static system prompt, where it costs nothing per turn.</li>
+  </ul>
+
+  <p>So the 1.2B, which won't search, still gets the evidence whenever there's evidence worth reading. The 2.6B and 8B models, which search well, do so when they decide the injected excerpts aren't enough. Chit-chat gets a clean prompt. If the prefetch was unconfident on a question-shaped turn, the "found nothing" row still appears, so the UI stays honest about what was searched.</p>
+
+  <blockquote class="pullquote">The cheapest token is the one the cache already holds, so I stopped making choices that throw the cache away.</blockquote>
+
+  <p>A tool on every turn has a price on the smallest tier. On a 4,096-token window the compact system prompt is about 909 tokens and the chat tool declarations were about 1,251, with 1,024 reserved for the answer. That leaves roughly 900 tokens for the message, its excerpts and the conversation history. During the first run a full excerpt block tipped the 1.2B over the window (4,122 of 4,096 tokens) and the turn was refused. The fix sheds the weakest excerpts, always keeping at least one, before Atlas gives up on a turn. Once excerpt shedding was in place, the shipped build had zero errors (down from three overflow refusals) and zero act-tool false positives on the bench.</p>
+
+  <!-- IMAGE SLOT: Atlas chat on iPhone showing the search_knowledge tool row and sources pill on a gated turn, next to a chit-chat turn with no tool row (docs/blog/images/atlas-gated-turn.png) -->
+
+  <h2>The trick that wasn't possible</h2>
+
+  <p>One cost was left over: the very first turn of a brand-new chat still has to prefill the system prompt. My plan was to prefill that once during warmup into a template conversation, and then <code>clone()</code> it for every new chat. LiteRT-LM v0.17 has a clone call, so I built it and measured it.</p>
+
+  <p>It saved nothing. <code>createConversation</code> returns in under a millisecond with a KV-cache token count of zero, and the count stays zero until the first <code>sendMessage</code>, which prefills the system prompt and the message together. A clone of a fresh conversation copies an empty cache. With the full system prompt the first turn's time to first token was 0.46 seconds, against 0.08 seconds with a tiny prompt, and the template made no difference to either. The C API has no conversation-level prefill. The only raw prefill call lives one layer down, without the chat template, the tool loop or the thought channel.</p>
+
+  <p>I removed the template machinery and kept one test. <code>ConversationPrefillTimingTests</code> asserts that a new conversation's cache is empty and that a clone carries nothing. On the day upstream starts prefilling at creation, that test fails, and the failure is my signal to try again. I track it as "W3" in the file where I watch upstream changes. I like this pattern for dead ends that might come back to life: write down why the idea didn't work, and let a test notice when that reason stops being true.</p>
+
+  <p>The attempt did turn up one real bug. Swift tears down stored properties in declaration order, and <code>LiteRTLMService</code> declared its native engine <em>before</em> the conversation cache. A session destroyed after its engine segfaulted at deinit, so the engine is now declared last, with a comment explaining why.</p>
+
+  <h2>Postscript: MLX went cold too</h2>
+
+  <p>Three days after the gated turn shipped, I found the same class of bug on the other runtime. On MLX, every follow-up turn prefilled cold. The pending user message was fed to the model with its preface (date, language, excerpts), but the stored history kept the raw message, and the chat template drops past reasoning. So on the next turn the resident cache and the rebuilt prompt diverged at the previous user message, and everything after that point was prefilled again.</p>
+
+  <p>The fix takes a snapshot of the cache at the start of the newest <em>user</em> message and rolls back to it on the next turn. An earlier version checkpointed at the newest message of any kind, which was usually a tool result, and that overwrote the useful checkpoint. Follow-up time to first token on the 8B went from 1.1–1.2 seconds to 0.2–0.4 seconds. <code>AtlasCLI ask … --then …</code> now runs a two-turn conversation headless, and any <code>mlx.cache.cold</code> mark on a follow-up is treated as a bug.</p>
+
+  <h2>What I'd tell myself in August</h2>
+
+  <p>Measure the turn, not the model. Tokens per second on both runtimes were within 10% of each other, and the user-visible gap came from everything that happened around decoding: a teardown on app switch, a second generation, a cache key that flipped. None of those appear in a model benchmark, and all of them show up in a <code>PerfLog</code> trace of one real turn.</p>
+
+  <p>The other lesson is about the KV cache. Anything that feeds into the cache key (the system prompt, the tool list, the date) has to stay stable across turns, and anything that varies per turn belongs in the one message the runtime actually sends. Both of the bugs in this post came from putting a changing value somewhere the cache key could see it.</p>
+
+  <p>Solair still has the faster cold start for a brand-new chat, and I can't fix that until W3 flips. The rest of the gap is closed, and the answers got more honest on the way.</p>
+
+  <div class="playground-callout">
+    <p class="pc-label">Try Atlas</p>
+    <p><a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=iphone">Get Atlas for iPhone &amp; iPad</a> or <a href="https://apps.apple.com/us/app/atlas-private-on-device-ai/id6790159340?platform=mac">get Atlas for Mac</a> on the App Store.</p>
+  </div>
+
+  <h2>References</h2>
+  <ul class="references">
+    <li><a href="https://github.com/google-ai-edge/LiteRT-LM">LiteRT-LM</a>: Google's on-device LLM runtime, which Atlas pins at v0.17.0. Its conversation API keeps the KV cache between turns, and its lazy prefill at conversation creation is the reason the template-clone idea in this post couldn't work.</li>
+    <li><a href="https://github.com/ml-explore/mlx-swift-lm">mlx-swift-lm</a>: Apple's MLX language-model library for Swift, Atlas's second runtime. The follow-up cold-prefill bug and its checkpoint-and-rollback fix live on this path.</li>
+    <li>Solair AI: A private, on-device AI chat app for iPhone that keeps its model resident. Comparing the two apps on the same phone is what sent me looking at turn shape instead of decode speed.</li>
+    <li><a href="https://huggingface.co/LiquidAI">Liquid AI LFM2 / LFM2.5</a>: The model family Atlas focuses on now. The 1.2B, 2.6B and 8B-A1B checkpoints are the rows of the experiment table above, and they behave very differently around tools.</li>
+    <li><a href="https://sqlite.org/fts5.html">SQLite FTS5</a>: The keyword side of Atlas's hybrid retrieval, and half of the G1 confidence gate: a semantic hit only counts as confident below 0.5 if FTS agrees.</li>
+  </ul>
+
+  <div id="postNav"></div>
+</main>
+
+<footer>© 2026 Bing Tan</footer>
+
+<script>
+(function () {
+  var NS = 'http://www.w3.org/2000/svg';
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function el(tag, attrs, text) {
+    var n = document.createElementNS(NS, tag);
+    for (var k in attrs) n.setAttribute(k, attrs[k]);
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function onVisible(node, fn) {
+    if (!('IntersectionObserver' in window)) { fn(); return; }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { io.disconnect(); fn(); } });
+    }, { threshold: 0.35 });
+    io.observe(node);
+  }
+
+  /* Figure 1: turn shapes. Units are schematic, not seconds. */
+  var lanes = [
+    { title: 'Summer turn', sub: 'backgrounded, tools on every turn', segs: [
+      ['cold', 0, 16, 'engine rebuild'], ['prefill', 16, 14, 'prompt + tools'], ['think', 30, 9, 'think'],
+      ['tool', 39, 5, 'tool'], ['prefill', 44, 7, 'results'], ['think', 51, 9, 'think'], ['answer', 60, 22, 'answer']
+    ], ttft: 60 },
+    { title: 'Retrieve, then generate', sub: '12 Sept: resident, no tools', segs: [
+      ['tool', 0, 2, ''], ['prefill', 2, 10, 'excerpts'], ['think', 12, 6, 'think'], ['answer', 18, 22, 'answer']
+    ], ttft: 18 },
+    { title: 'Gated turn (ships)', sub: '24 Sept: fixed tools, warm key', segs: [
+      ['tool', 0, 2, ''], ['prefill', 2, 10, 'excerpts'], ['think', 12, 6, 'think'], ['answer', 18, 22, 'answer'],
+      ['free', 40, 22, 'big model may search']
+    ], ttft: 18 }
+  ];
+  /* Trim a segment label with an ellipsis until it fits its bar. */
+  function fitLabel(t, max) {
+    var txt = t.textContent;
+    try {
+      while (txt.length && t.getComputedTextLength() > max) {
+        txt = txt.slice(0, -1).replace(/\s+$/, '');
+        t.textContent = txt ? txt + '…' : '';
+      }
+    } catch (e) { /* not rendered yet: keep the full label */ }
+  }
+  var X0 = 190, SCALE = 6.6, LANE_H = 96, TOP = 30, BAR_H = 30, TMAX = 86;
+  var g = document.getElementById('rtgLanes');
+  var segNodes = [], marks = [];
+  lanes.forEach(function (lane, i) {
+    var y = TOP + i * LANE_H;
+    g.appendChild(el('text', { x: 16, y: y + 14, 'class': 'rtg-lane-t' }, lane.title));
+    g.appendChild(el('text', { x: 16, y: y + 32, 'class': 'rtg-lane-s' }, lane.sub));
+    g.appendChild(el('rect', { x: X0, y: y, width: TMAX * SCALE - 20, height: BAR_H, rx: 5, 'class': 'rtg-track' }));
+    lane.segs.forEach(function (s) {
+      var isFree = s[0] === 'free';
+      var sx = isFree ? X0 + s[1] * SCALE + 6 : X0 + s[1] * SCALE;
+      var r = el('rect', { x: sx, y: isFree ? y + 4 : y, height: isFree ? BAR_H - 8 : BAR_H, width: 0, rx: 4, 'class': 'rtg-seg ' + s[0] });
+      g.appendChild(r);
+      var full = s[2] * SCALE - (isFree ? 6 : 0);
+      segNodes.push({ node: r, start: s[1], dur: s[2], full: full });
+      if (s[3]) {
+        var t = el('text', { x: sx + 5, y: y + BAR_H / 2 + 4, 'class': 'rtg-seg-l', opacity: 0 }, s[3]);
+        g.appendChild(t);
+        fitLabel(t, full - 8);
+        segNodes.push({ label: t, start: s[1] + s[2] * 0.5 });
+      }
+    });
+    var mx = X0 + lane.ttft * SCALE;
+    var mk = el('g', { 'class': 'rtg-ttft' });
+    mk.appendChild(el('line', { x1: mx, x2: mx, y1: y - 8, y2: y + BAR_H + 10 }));
+    mk.appendChild(el('text', { x: mx + 4, y: y + BAR_H + 22 }, 'first visible token'));
+    g.appendChild(mk);
+    marks.push({ node: mk, at: lane.ttft });
+  });
+  var head = el('line', { x1: X0, x2: X0, y1: TOP - 14, y2: TOP + LANE_H * 2 + BAR_H + 6, 'class': 'rtg-head' });
+  g.appendChild(head);
+
+  var clock = document.getElementById('rtgClock');
+  function draw(t) {
+    segNodes.forEach(function (s) {
+      if (s.label) { s.label.setAttribute('opacity', t >= s.start ? 1 : 0); return; }
+      var f = Math.max(0, Math.min(1, (t - s.start) / s.dur));
+      s.node.setAttribute('width', (f * s.full).toFixed(1));
+    });
+    marks.forEach(function (m) { m.node.classList.toggle('on', t >= m.at); });
+    var hx = X0 + Math.min(t, TMAX - 3) * SCALE;
+    head.setAttribute('x1', hx); head.setAttribute('x2', hx);
+    head.setAttribute('opacity', t >= TMAX ? 0 : 1);
+    clock.textContent = t >= TMAX ? 'schematic, not to scale' : 'playing…';
+  }
+  var raf = null;
+  function play() {
+    if (raf) cancelAnimationFrame(raf);
+    if (reduce) { draw(TMAX); return; }
+    var t0 = null, DURATION = 6500;
+    function step(ts) {
+      if (t0 === null) t0 = ts;
+      var t = (ts - t0) / DURATION * TMAX;
+      draw(Math.min(t, TMAX));
+      if (t < TMAX) raf = requestAnimationFrame(step);
+    }
+    raf = requestAnimationFrame(step);
+  }
+  draw(reduce ? TMAX : 0);
+  onVisible(document.getElementById('rtgShape'), play);
+  document.getElementById('rtgReplay').addEventListener('click', play);
+
+  /* Figure 2: cache-key cards */
+  var rowA = [
+    { q: '"what did I note on the trip?"', tools: '(none)', key: 'key A', s: 'cold' },
+    { q: '"remind me to book it"', tools: 'create_reminder, list_reminders', key: 'key B', s: 'cold' },
+    { q: '"and the hotel name?"', tools: '(none)', key: 'key A', s: 'cold' },
+    { q: '"did they email me?"', tools: 'search_email, read_email_thread', key: 'key C', s: 'cold' }
+  ];
+  var rowB = [
+    { q: '"what did I note on the trip?"', tools: 'chatTools(), + search_knowledge', key: 'key A', s: 'cold' },
+    { q: '"remind me to book it"', tools: 'chatTools(), + search_knowledge', key: 'key A', s: 'warm' },
+    { q: '"and the hotel name?"', tools: 'chatTools(), + search_knowledge', key: 'key A', s: 'warm' },
+    { q: '"did they email me?"', tools: 'chatTools(), + search_knowledge', key: 'key A', s: 'warm' }
+  ];
+  function row(gid, data, y0, firstNote) {
+    var root = document.getElementById(gid);
+    var W = 172, GAP = 12, X = 16;
+    data.forEach(function (d, i) {
+      var x = X + i * (W + GAP);
+      var cls = 'rtg-turn ' + d.s + (i ? ' d' + i : '');
+      var c = el('g', { 'class': cls });
+      c.appendChild(el('rect', { x: x, y: y0, width: W, height: 118, rx: 8, 'class': 'card' }));
+      c.appendChild(el('text', { x: x + 10, y: y0 + 18, 'class': 'tn' }, 'turn ' + (i + 1)));
+      c.appendChild(el('text', { x: x + 10, y: y0 + 38, 'class': 'q' }, d.q.length > 26 ? d.q.slice(0, 25) + '…"' : d.q));
+      var parts = d.tools.split(', ');
+      parts.forEach(function (p, j) {
+        c.appendChild(el('text', { x: x + 10, y: y0 + 58 + j * 14, 'class': 'tools' }, p + (j < parts.length - 1 && parts[j + 1].charAt(0) !== '+' ? ',' : '')));
+      });
+      var k = el('g', { 'class': 'key' });
+      k.appendChild(el('rect', { x: x + 10, y: y0 + 86, width: W - 20, height: 22, rx: 11 }));
+      var label = d.key + ' · ' + (i === 0 ? firstNote : d.s);
+      k.appendChild(el('text', { x: x + W / 2, y: y0 + 101, 'text-anchor': 'middle' }, label));
+      c.appendChild(k);
+      root.appendChild(c);
+      if (i < data.length - 1) {
+        root.appendChild(el('path', { d: 'M' + (x + W + 1) + ',' + (y0 + 59) + ' h' + (GAP - 3), 'class': 'rtg-arrow', 'marker-end': 'url(#rtgArr)' }));
+      }
+    });
+  }
+  row('rtgRowA', rowA, 60, 'new chat');
+  row('rtgRowB', rowB, 240, 'new chat');
+  var keys = document.getElementById('rtgKeys');
+  if (reduce) keys.classList.add('on');
+  else onVisible(keys, function () { keys.classList.add('on'); });
+})();
+</script>
+<script src="../../../js/blog-data.js"></script>
+<script src="../../../js/mermaid-init.js" defer></script>
+<script src="../../../js/post-extras.js" defer></script>
+</body>
+</html>

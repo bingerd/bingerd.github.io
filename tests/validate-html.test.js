@@ -19,7 +19,13 @@ const blogFiles = [
   'docs/blog/2026/receipt-agent.html',
   'docs/blog/2026/home-assistant-k8s.html',
   'docs/blog/2026/teaching-cloud-tu-delft.html',
-  'docs/blog/2026/atlas-context-engineering.html'
+  'docs/blog/2026/atlas-context-engineering.html',
+  'docs/blog/2026/atlas-small-models.html',
+  'docs/blog/2026/atlas-retrieve-then-generate.html',
+  'docs/blog/2026/atlas-network-boundary.html',
+  'docs/blog/2026/atlas-ears-and-eyes.html',
+  'docs/blog/2026/atlas-experiments-not-shipped.html',
+  'docs/blog/2026/atlas-july-to-november.html'
 ];
 
 const playgroundFiles = [

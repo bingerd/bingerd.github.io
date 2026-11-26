@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://bngrd.com/</loc></url>
+  <url><loc>https://bngrd.com/docs/blog/2026/atlas-july-to-november.html</loc></url>
   <url><loc>https://bngrd.com/docs/blog/2026/meeting-agent-decision-model.html</loc></url>
+  <url><loc>https://bngrd.com/docs/blog/2026/atlas-experiments-not-shipped.html</loc></url>
+  <url><loc>https://bngrd.com/docs/blog/2026/atlas-ears-and-eyes.html</loc></url>
+  <url><loc>https://bngrd.com/docs/blog/2026/atlas-network-boundary.html</loc></url>
+  <url><loc>https://bngrd.com/docs/blog/2026/atlas-retrieve-then-generate.html</loc></url>
+  <url><loc>https://bngrd.com/docs/blog/2026/atlas-small-models.html</loc></url>
   <url><loc>https://bngrd.com/docs/blog/2026/atlas-context-engineering.html</loc></url>
   <url><loc>https://bngrd.com/docs/blog/2026/teaching-cloud-tu-delft.html</loc></url>
   <url><loc>https://bngrd.com/docs/blog/2026/home-assistant-k8s.html</loc></url>

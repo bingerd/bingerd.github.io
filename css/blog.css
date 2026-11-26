@@ -370,6 +370,9 @@ figcaption {
 }
 .playground-callout p:last-child { margin-bottom: 0; }
 .playground-callout a { color: var(--accent); font-weight: 600; }
+.series-box ol { margin: 0; padding-left: 1.3rem; }
+.series-box li { margin: 0.25rem 0; }
+.series-box li strong { color: var(--fg); }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
