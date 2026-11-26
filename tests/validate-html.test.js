@@ -106,6 +106,11 @@ describe('blog posts are listed in blog-data.js', () => {
       assert.ok(blogData.includes(file), `${file} should be listed in js/blog-data.js blogPosts`);
     });
   }
+  it('index.html cache-busts blog-data.js with the newest post date', () => {
+    const newest = blogData.match(/date: "(\d{4}-\d{2}-\d{2})"/)[1];
+    assert.ok(readFile('index.html').includes(`js/blog-data.js?v=${newest}`),
+      `index.html should load js/blog-data.js?v=${newest} so browsers fetch the new post list`);
+  });
 });
 
 describe('blog posts load their enhancement scripts', () => {
